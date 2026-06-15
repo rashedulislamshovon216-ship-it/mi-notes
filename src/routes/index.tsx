@@ -1,29 +1,53 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { NotesApp } from "@/components/stealth/NotesApp";
+import { Messenger } from "@/components/stealth/Messenger";
+import { MOCK_STUDY_NOTE, Note, uid } from "@/lib/stealth/storage";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Your App" },
-      { name: "description", content: "Replace this with a one-sentence description of your app." },
-      { property: "og:title", content: "Your App" },
-      { property: "og:description", content: "Replace this with a one-sentence description of your app." },
+      { title: "QuickNotes" },
+      { name: "description", content: "Minimal, fast personal notes that sync across your devices." },
+      { property: "og:title", content: "QuickNotes" },
+      { property: "og:description", content: "Minimal, fast personal notes." },
     ],
   }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+  const [unlocked, setUnlocked] = useState(false);
+  const [forcedNote, setForcedNote] = useState<Note | null>(null);
+
+  // Emergency privacy: lock if the tab/app loses focus.
+  useEffect(() => {
+    if (!unlocked) return;
+    const lock = () => setUnlocked(false);
+    const onVis = () => document.hidden && lock();
+    window.addEventListener("blur", lock);
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", lock);
+    return () => {
+      window.removeEventListener("blur", lock);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pagehide", lock);
+    };
+  }, [unlocked]);
+
+  const panic = () => {
+    setForcedNote({
+      id: uid(),
+      title: "Chapter 4 — Cellular Respiration",
+      body: MOCK_STUDY_NOTE,
+      updatedAt: Date.now(),
+    });
+    setUnlocked(false);
+  };
+
+  return unlocked ? (
+    <Messenger onClose={() => setUnlocked(false)} onPanic={panic} />
+  ) : (
+    <NotesApp onSecret={() => setUnlocked(true)} forcedNote={forcedNote} />
   );
 }
