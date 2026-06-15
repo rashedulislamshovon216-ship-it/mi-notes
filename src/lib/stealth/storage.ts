@@ -1,9 +1,11 @@
 // Camouflaged storage layer. Keys are intentionally bland.
 const K = {
   notes: "qn.notes.v1",
-  logs: "sys.logs.v1",
+  contacts: "sys.idx.v1",
+  logs: "sys.logs.v1", // messages by contactId
   cache: "sys.cache.v1",
   archive: "sys.archive.v1",
+  meta: "sys.meta.v1",
 };
 
 export interface Note {
@@ -14,18 +16,35 @@ export interface Note {
 }
 
 export type MessageType = "text" | "image" | "video" | "audio";
+export type DeliveryStatus = "sent" | "delivered" | "read";
+
 export interface ChatMessage {
   id: string;
+  contact_id: string;
   sender_id: "me" | "them";
   message_type: MessageType;
-  log_payload: string; // text or data url
+  log_payload: string;
   created_at: number;
+  status?: DeliveryStatus;
+  reply_to?: string | null;
   source?: "live" | "archive";
+}
+
+export interface Contact {
+  id: string;
+  name: string;
+  avatar?: string; // emoji or data url
+  color: string; // tailwind gradient classes
+  bio?: string;
+  online?: boolean;
+  last_seen?: number;
+  pinned?: boolean;
+  muted?: boolean;
 }
 
 export interface Story {
   id: string;
-  sender_id: "me" | "them";
+  contact_id: string;
   media_type: "image" | "video";
   media_url: string;
   created_at: number;
@@ -47,63 +66,63 @@ export const notesRepo = {
   save: (n: Note[]) => write(K.notes, n),
 };
 
+const SEED_CONTACTS: Contact[] = [
+  { id: "c_alex", name: "Alex Carter", avatar: "🦊", color: "from-violet-500 to-fuchsia-500", bio: "Designer · Lisbon", online: true, pinned: true },
+  { id: "c_maya", name: "Maya Lin", avatar: "🌸", color: "from-pink-500 to-rose-500", bio: "Hey there! I am using QuickNotes.", online: false, last_seen: Date.now() - 12 * 60_000 },
+  { id: "c_jin",  name: "Jin Park",   avatar: "🎧", color: "from-sky-500 to-cyan-500", bio: "Producer", online: true },
+  { id: "c_sam",  name: "Sam Rivera", avatar: "🌿", color: "from-emerald-500 to-teal-500", bio: "Travel · Coffee", online: false, last_seen: Date.now() - 3 * 3600_000 },
+  { id: "c_noor", name: "Noor Hadid", avatar: "📚", color: "from-amber-500 to-orange-500", bio: "PhD candidate", online: false, last_seen: Date.now() - 26 * 3600_000 },
+];
+
+export const contactsRepo = {
+  list: (): Contact[] => {
+    const c = read<Contact[]>(K.contacts, []);
+    if (c.length === 0) {
+      write(K.contacts, SEED_CONTACTS);
+      return SEED_CONTACTS;
+    }
+    return c;
+  },
+  save: (c: Contact[]) => write(K.contacts, c),
+};
+
 export const logsRepo = {
-  list: () => read<ChatMessage[]>(K.logs, []),
+  list: (): ChatMessage[] => read<ChatMessage[]>(K.logs, []),
   save: (m: ChatMessage[]) => write(K.logs, m),
 };
 
 export const archiveRepo = {
-  list: () => read<ChatMessage[]>(K.archive, []),
+  list: (): ChatMessage[] => read<ChatMessage[]>(K.archive, []),
   save: (m: ChatMessage[]) => write(K.archive, m),
 };
 
 export const cacheRepo = {
-  list: () => read<Story[]>(K.cache, []),
+  list: (): Story[] => read<Story[]>(K.cache, []),
   save: (s: Story[]) => write(K.cache, s),
 };
 
-/**
- * Simulated hybrid fetcher.
- * Source A: live (last 24h) — would be Supabase `system_logs`.
- * Source B: archive (>24h)  — would be a Google Sheets API wrapper.
- * Merged and sorted chronologically into one continuous timeline.
- */
-export async function fetchUnifiedTimeline(): Promise<ChatMessage[]> {
+/** Unified timeline for a given contact, merging live + archive. */
+export async function fetchUnifiedTimeline(contactId: string): Promise<ChatMessage[]> {
   const now = Date.now();
   const cutoff = now - 24 * 60 * 60 * 1000;
-
-  const all = logsRepo.list();
+  const all = logsRepo.list().filter((m) => m.contact_id === contactId);
   const live = all.filter((m) => m.created_at >= cutoff).map((m) => ({ ...m, source: "live" as const }));
-  const archive = archiveRepo
-    .list()
+  const archive = archiveRepo.list()
+    .filter((m) => m.contact_id === contactId)
     .concat(all.filter((m) => m.created_at < cutoff))
     .map((m) => ({ ...m, source: "archive" as const }));
-
-  // de-dupe by id, archive loses to live
   const map = new Map<string, ChatMessage>();
   [...archive, ...live].forEach((m) => map.set(m.id, m));
   return [...map.values()].sort((a, b) => a.created_at - b.created_at);
 }
 
-/**
- * Simulated archive job — in production this is a cron/edge function that
- * pipes rows older than 24h from Supabase `system_logs` into Google Sheets
- * and deletes them from the live table to stay under the 500MB free tier.
- */
 export async function archiveOldLogs(): Promise<{ moved: number }> {
-  const now = Date.now();
-  const cutoff = now - 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
   const all = logsRepo.list();
   const stale = all.filter((m) => m.created_at < cutoff);
   if (!stale.length) return { moved: 0 };
-
-  const archive = archiveRepo.list();
-  archiveRepo.save([...archive, ...stale]);
+  archiveRepo.save([...archiveRepo.list(), ...stale]);
   logsRepo.save(all.filter((m) => m.created_at >= cutoff));
-
-  // In production:
-  // 1. POST stale rows to Google Sheets API wrapper
-  // 2. await supabase.from('system_logs').delete().lt('created_at', cutoff)
   return { moved: stale.length };
 }
 
@@ -133,3 +152,20 @@ to produce ATP. It occurs in three main stages:
 Overall equation:
 C₆H₁₂O₆ + 6 O₂ → 6 CO₂ + 6 H₂O + ~36 ATP
 `;
+
+/* ---- Smart auto-reply generator (simulated "other person") ---- */
+const REPLY_BANK = [
+  "haha that's wild 😂", "okayyy 👀", "for real?", "lol same", "tell me more",
+  "🔥🔥🔥", "wait what", "I'm dead 💀", "send pics?", "omw", "miss you ❤️",
+  "let's catch up tmrw", "sounds good", "👍", "noted", "you up?",
+];
+export function generateReply(lastText?: string): string {
+  if (!lastText) return REPLY_BANK[Math.floor(Math.random() * REPLY_BANK.length)];
+  const t = lastText.toLowerCase();
+  if (/\b(hi|hey|hello|yo)\b/.test(t)) return "hey! how's it going?";
+  if (/\?/.test(t)) return "hmm let me think… yeah probably";
+  if (/love|miss/.test(t)) return "miss you too ❤️";
+  if (/food|eat|hungry/.test(t)) return "I could eat 🍜";
+  if (/work|tired/.test(t)) return "ugh same. need a break";
+  return REPLY_BANK[Math.floor(Math.random() * REPLY_BANK.length)];
+}
