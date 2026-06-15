@@ -623,7 +623,7 @@ function Ticks({ status, small }: { status: ChatMessage["status"]; small?: boole
   const color = status === "read" ? "text-sky-400" : "text-white/60";
   const sz = small ? 12 : 14;
   if (status === "sent") {
-    return <svg width={sz} height={sz} viewBox="0 0 16 16" className={color}><path fill="currentColor" d="M11.5 4.5L6 10 4 8" stroke="currentColor" strokeWidth="1.5" fill="none" /></svg>;
+    return <svg width={sz} height={sz} viewBox="0 0 16 16" className={color}><path d="M11.5 4.5L6 10 4 8" stroke="currentColor" strokeWidth="1.5" fill="none" /></svg>;
   }
   return (
     <svg width={sz + 4} height={sz} viewBox="0 0 20 16" className={color}>
