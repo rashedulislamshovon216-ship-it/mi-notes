@@ -15,7 +15,7 @@ export interface Note {
   updatedAt: number;
 }
 
-export type MessageType = "text" | "image" | "video" | "audio";
+export type MessageType = "text" | "image" | "video" | "audio" | "sticker" | "gif";
 export type DeliveryStatus = "sent" | "delivered" | "read";
 
 export interface ChatMessage {

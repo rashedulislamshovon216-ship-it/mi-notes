@@ -12,6 +12,9 @@ import {
   pruneExpiredStories,
   uid,
 } from "@/lib/stealth/storage";
+import { EmojiPicker } from "./EmojiPicker";
+import { SettingsPanel } from "./SettingsPanel";
+import { ThemeId, applyTheme, getStoredTheme } from "@/lib/stealth/themes";
 
 interface Props {
   onClose: () => void;
@@ -19,8 +22,6 @@ interface Props {
 }
 
 type View = "list" | "chat" | "story" | "profile";
-
-const EMOJIS = ["😀","😂","🥹","😍","🥰","😘","😎","🤔","😴","🤯","🥳","😭","🙄","😤","🤝","👍","👏","🙏","🔥","💯","🎉","❤️","💔","💕","✨","🌹","☕","🍕","🍻","⚡"];
 
 export function Messenger({ onClose, onPanic }: Props) {
   const [contacts, setContacts] = useState<Contact[]>(() => contactsRepo.list());
@@ -30,6 +31,10 @@ export function Messenger({ onClose, onPanic }: Props) {
   const [stories, setStories] = useState<Story[]>([]);
   const [viewStory, setViewStory] = useState<Story | null>(null);
   const [allMessages, setAllMessages] = useState<ChatMessage[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [theme, setTheme] = useState<ThemeId>(() => getStoredTheme());
+
+  useEffect(() => { applyTheme(theme); }, [theme]);
 
   useEffect(() => {
     archiveOldLogs();
@@ -83,7 +88,7 @@ export function Messenger({ onClose, onPanic }: Props) {
   const active = contacts.find((c) => c.id === activeId) ?? null;
 
   return (
-    <div className="h-dvh w-full bg-[#0b141a] text-white flex overflow-hidden">
+    <div className="h-dvh w-full aurora-bg text-white flex overflow-hidden">
       {view === "list" && (
         <ContactsView
           contacts={sortedContacts}
@@ -95,6 +100,7 @@ export function Messenger({ onClose, onPanic }: Props) {
           onOpen={openChat}
           onProfile={(id) => { setActiveId(id); setView("profile"); }}
           onClose={onClose}
+          onSettings={() => setSettingsOpen(true)}
           onStoryClick={(s) => setViewStory(s)}
           onAddStory={(s) => {
             const next = [...cacheRepo.list(), s];
@@ -110,6 +116,7 @@ export function Messenger({ onClose, onPanic }: Props) {
           onProfile={() => setView("profile")}
           onPanic={onPanic}
           onChanged={refreshMessages}
+          onSettings={() => setSettingsOpen(true)}
         />
       )}
       {view === "profile" && active && (
@@ -122,6 +129,7 @@ export function Messenger({ onClose, onPanic }: Props) {
         }} />
       )}
       {viewStory && <StoryViewer story={viewStory} contact={contacts.find((c) => c.id === viewStory.contact_id)} onClose={() => setViewStory(null)} />}
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} onTheme={setTheme} />
     </div>
   );
 }
@@ -129,7 +137,7 @@ export function Messenger({ onClose, onPanic }: Props) {
 /* ============================ CONTACTS LIST ============================ */
 function ContactsView({
   contacts, stories, search, setSearch, lastByContact, unreadByContact,
-  onOpen, onProfile, onClose, onStoryClick, onAddStory,
+  onOpen, onProfile, onClose, onSettings, onStoryClick, onAddStory,
 }: {
   contacts: Contact[];
   stories: Story[];
@@ -140,6 +148,7 @@ function ContactsView({
   onOpen: (id: string) => void;
   onProfile: (id: string) => void;
   onClose: () => void;
+  onSettings: () => void;
   onStoryClick: (s: Story) => void;
   onAddStory: (s: Story) => void;
 }) {
@@ -156,28 +165,31 @@ function ContactsView({
   };
 
   return (
-    <div className="flex flex-col w-full bg-[#111b21]">
+    <div className="flex flex-col w-full aurora-bg">
       {/* Header */}
-      <header className="px-4 pt-4 pb-2 flex items-center justify-between">
-        <h1 className="text-[22px] font-semibold tracking-tight text-white">Chats</h1>
+      <header className="glass px-4 pt-5 pb-3 flex items-center justify-between sticky top-0 z-10">
+        <div>
+          <h1 className="text-[24px] font-semibold tracking-tight text-white">Messages</h1>
+          <p className="text-[11px] text-[var(--msg-muted)]">end-to-end encrypted · 🔒</p>
+        </div>
         <div className="flex items-center gap-1">
-          <IconBtn label="Search"><SearchIcon /></IconBtn>
+          <IconBtn label="Settings" onClick={onSettings}><GearIcon /></IconBtn>
           <IconBtn label="Camera"><CamIcon /></IconBtn>
-          <button onClick={onClose} className="ml-1 text-[12px] text-red-400 hover:text-red-300 font-medium px-2 py-1 rounded-md hover:bg-white/5">
+          <button onClick={onClose} className="ml-1 text-[12px] text-red-300 hover:text-red-200 font-medium px-3 py-1.5 rounded-full glass-soft">
             Lock
           </button>
         </div>
       </header>
 
       {/* Search */}
-      <div className="px-3 pb-2">
+      <div className="px-3 py-3">
         <div className="relative">
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Ask Meta AI or Search"
-            className="w-full bg-[#202c33] rounded-full pl-10 pr-4 py-2 text-sm placeholder:text-[#8696a0] outline-none focus:ring-1 ring-emerald-500/40"
+            placeholder="Search conversations…"
+            className="w-full glass-soft rounded-full pl-10 pr-4 py-2.5 text-sm placeholder:text-[var(--msg-muted)] outline-none focus:ring-2 focus:ring-[var(--msg-accent)]/40"
           />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8696a0]"><SearchIcon size={16} /></span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--msg-muted)]"><SearchIcon size={16} /></span>
         </div>
       </div>
 
@@ -246,12 +258,13 @@ function ContactsView({
 }
 
 /* ============================ CHAT VIEW ============================ */
-function ChatView({ contact, onBack, onProfile, onPanic, onChanged }: {
+function ChatView({ contact, onBack, onProfile, onPanic, onChanged, onSettings }: {
   contact: Contact;
   onBack: () => void;
   onProfile: () => void;
   onPanic: () => void;
   onChanged: () => void;
+  onSettings: () => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
@@ -385,7 +398,7 @@ function ChatView({ contact, onBack, onProfile, onPanic, onChanged }: {
         </button>
         <IconBtn label="Video call"><VideoIcon /></IconBtn>
         <IconBtn label="Voice call"><PhoneIcon /></IconBtn>
-        <IconBtn label="More"><DotsIcon /></IconBtn>
+        <IconBtn label="Settings" onClick={onSettings}><GearIcon /></IconBtn>
       </header>
 
       {/* Messages */}
@@ -443,13 +456,13 @@ function ChatView({ contact, onBack, onProfile, onPanic, onChanged }: {
         </div>
       )}
 
-      {/* Emoji panel */}
+      {/* Emoji / Sticker / GIF panel */}
       {emoji && (
-        <div className="bg-[#202c33] border-t border-black/30 px-3 py-3 grid grid-cols-10 gap-1 max-h-40 overflow-y-auto">
-          {EMOJIS.map((e) => (
-            <button key={e} onClick={() => setText((t) => t + e)} className="text-xl hover:bg-white/5 rounded">{e}</button>
-          ))}
-        </div>
+        <EmojiPicker
+          onPickEmoji={(e) => setText((t) => t + e)}
+          onPickSticker={(s) => { send({ message_type: "sticker", log_payload: `${s.emoji}|${s.caption}` }); setEmoji(false); }}
+          onPickGif={(url) => { send({ message_type: "gif", log_payload: url }); setEmoji(false); }}
+        />
       )}
 
       {/* Composer */}
@@ -519,6 +532,18 @@ function Bubble({ m, replyTo, selected, onSelect, onMediaOpen }: {
           <video src={m.log_payload} controls className="rounded-md max-h-72 max-w-full" />
         )}
         {m.message_type === "audio" && <AudioBubble url={m.log_payload} mine={mine} />}
+        {m.message_type === "sticker" && (() => {
+          const [emo, cap] = m.log_payload.split("|");
+          return (
+            <div className="flex flex-col items-center px-3 py-2 min-w-[120px]">
+              <span className="text-[72px] leading-none float-slow">{emo}</span>
+              {cap && <span className="text-[11px] text-white/70 mt-1">{cap}</span>}
+            </div>
+          );
+        })()}
+        {m.message_type === "gif" && (
+          <img onClick={(e) => { e.stopPropagation(); onMediaOpen(); }} src={m.log_payload} alt="gif" className="rounded-md max-h-60 object-cover cursor-zoom-in" />
+        )}
         <div className="text-[10px] text-white/60 text-right -mt-3 mr-1 flex items-center justify-end gap-1 pr-1">
           {m.source === "archive" && <span title="From archive">📁</span>}
           <span>{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
@@ -633,9 +658,10 @@ function Ticks({ status, small }: { status: ChatMessage["status"]; small?: boole
   );
 }
 
-function IconBtn({ children, label }: { children: React.ReactNode; label: string }) {
-  return <button aria-label={label} className="size-9 grid place-items-center rounded-full text-[#aebac1] hover:bg-white/5">{children}</button>;
+function IconBtn({ children, label, onClick }: { children: React.ReactNode; label: string; onClick?: () => void }) {
+  return <button aria-label={label} onClick={onClick} className="size-9 grid place-items-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition">{children}</button>;
 }
+const GearIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.29l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>;
 const SearchIcon = ({ size = 20 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>;
 const CamIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>;
 const BackIcon = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>;
@@ -692,5 +718,7 @@ function previewOf(m?: ChatMessage | null) {
   if (m.message_type === "image") return "📷 Photo";
   if (m.message_type === "video") return "🎬 Video";
   if (m.message_type === "audio") return "🎤 Voice message";
+  if (m.message_type === "sticker") return `${m.log_payload.split("|")[0]} Sticker`;
+  if (m.message_type === "gif") return "✨ GIF";
   return m.log_payload;
 }
