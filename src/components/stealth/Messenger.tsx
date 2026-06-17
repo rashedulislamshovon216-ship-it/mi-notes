@@ -398,7 +398,7 @@ function ChatView({ contact, onBack, onProfile, onPanic, onChanged, onSettings }
         </button>
         <IconBtn label="Video call"><VideoIcon /></IconBtn>
         <IconBtn label="Voice call"><PhoneIcon /></IconBtn>
-        <IconBtn label="More"><DotsIcon /></IconBtn>
+        <IconBtn label="Settings" onClick={onSettings}><GearIcon /></IconBtn>
       </header>
 
       {/* Messages */}
@@ -532,6 +532,18 @@ function Bubble({ m, replyTo, selected, onSelect, onMediaOpen }: {
           <video src={m.log_payload} controls className="rounded-md max-h-72 max-w-full" />
         )}
         {m.message_type === "audio" && <AudioBubble url={m.log_payload} mine={mine} />}
+        {m.message_type === "sticker" && (() => {
+          const [emo, cap] = m.log_payload.split("|");
+          return (
+            <div className="flex flex-col items-center px-3 py-2 min-w-[120px]">
+              <span className="text-[72px] leading-none float-slow">{emo}</span>
+              {cap && <span className="text-[11px] text-white/70 mt-1">{cap}</span>}
+            </div>
+          );
+        })()}
+        {m.message_type === "gif" && (
+          <img onClick={(e) => { e.stopPropagation(); onMediaOpen(); }} src={m.log_payload} alt="gif" className="rounded-md max-h-60 object-cover cursor-zoom-in" />
+        )}
         <div className="text-[10px] text-white/60 text-right -mt-3 mr-1 flex items-center justify-end gap-1 pr-1">
           {m.source === "archive" && <span title="From archive">📁</span>}
           <span>{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
