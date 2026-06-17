@@ -88,7 +88,7 @@ export function Messenger({ onClose, onPanic }: Props) {
   const active = contacts.find((c) => c.id === activeId) ?? null;
 
   return (
-    <div className="h-dvh w-full bg-[#0b141a] text-white flex overflow-hidden">
+    <div className="h-dvh w-full aurora-bg text-white flex overflow-hidden">
       {view === "list" && (
         <ContactsView
           contacts={sortedContacts}
@@ -100,6 +100,7 @@ export function Messenger({ onClose, onPanic }: Props) {
           onOpen={openChat}
           onProfile={(id) => { setActiveId(id); setView("profile"); }}
           onClose={onClose}
+          onSettings={() => setSettingsOpen(true)}
           onStoryClick={(s) => setViewStory(s)}
           onAddStory={(s) => {
             const next = [...cacheRepo.list(), s];
@@ -115,6 +116,7 @@ export function Messenger({ onClose, onPanic }: Props) {
           onProfile={() => setView("profile")}
           onPanic={onPanic}
           onChanged={refreshMessages}
+          onSettings={() => setSettingsOpen(true)}
         />
       )}
       {view === "profile" && active && (
@@ -127,6 +129,7 @@ export function Messenger({ onClose, onPanic }: Props) {
         }} />
       )}
       {viewStory && <StoryViewer story={viewStory} contact={contacts.find((c) => c.id === viewStory.contact_id)} onClose={() => setViewStory(null)} />}
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} onTheme={setTheme} />
     </div>
   );
 }
