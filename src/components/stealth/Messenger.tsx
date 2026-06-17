@@ -137,7 +137,7 @@ export function Messenger({ onClose, onPanic }: Props) {
 /* ============================ CONTACTS LIST ============================ */
 function ContactsView({
   contacts, stories, search, setSearch, lastByContact, unreadByContact,
-  onOpen, onProfile, onClose, onStoryClick, onAddStory,
+  onOpen, onProfile, onClose, onSettings, onStoryClick, onAddStory,
 }: {
   contacts: Contact[];
   stories: Story[];
@@ -148,6 +148,7 @@ function ContactsView({
   onOpen: (id: string) => void;
   onProfile: (id: string) => void;
   onClose: () => void;
+  onSettings: () => void;
   onStoryClick: (s: Story) => void;
   onAddStory: (s: Story) => void;
 }) {
@@ -164,28 +165,31 @@ function ContactsView({
   };
 
   return (
-    <div className="flex flex-col w-full bg-[#111b21]">
+    <div className="flex flex-col w-full aurora-bg">
       {/* Header */}
-      <header className="px-4 pt-4 pb-2 flex items-center justify-between">
-        <h1 className="text-[22px] font-semibold tracking-tight text-white">Chats</h1>
+      <header className="glass px-4 pt-5 pb-3 flex items-center justify-between sticky top-0 z-10">
+        <div>
+          <h1 className="text-[24px] font-semibold tracking-tight text-white">Messages</h1>
+          <p className="text-[11px] text-[var(--msg-muted)]">end-to-end encrypted · 🔒</p>
+        </div>
         <div className="flex items-center gap-1">
-          <IconBtn label="Search"><SearchIcon /></IconBtn>
+          <IconBtn label="Settings" onClick={onSettings}><GearIcon /></IconBtn>
           <IconBtn label="Camera"><CamIcon /></IconBtn>
-          <button onClick={onClose} className="ml-1 text-[12px] text-red-400 hover:text-red-300 font-medium px-2 py-1 rounded-md hover:bg-white/5">
+          <button onClick={onClose} className="ml-1 text-[12px] text-red-300 hover:text-red-200 font-medium px-3 py-1.5 rounded-full glass-soft">
             Lock
           </button>
         </div>
       </header>
 
       {/* Search */}
-      <div className="px-3 pb-2">
+      <div className="px-3 py-3">
         <div className="relative">
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Ask Meta AI or Search"
-            className="w-full bg-[#202c33] rounded-full pl-10 pr-4 py-2 text-sm placeholder:text-[#8696a0] outline-none focus:ring-1 ring-emerald-500/40"
+            placeholder="Search conversations…"
+            className="w-full glass-soft rounded-full pl-10 pr-4 py-2.5 text-sm placeholder:text-[var(--msg-muted)] outline-none focus:ring-2 focus:ring-[var(--msg-accent)]/40"
           />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8696a0]"><SearchIcon size={16} /></span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--msg-muted)]"><SearchIcon size={16} /></span>
         </div>
       </div>
 
