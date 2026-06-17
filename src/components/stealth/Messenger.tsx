@@ -31,6 +31,10 @@ export function Messenger({ onClose, onPanic }: Props) {
   const [stories, setStories] = useState<Story[]>([]);
   const [viewStory, setViewStory] = useState<Story | null>(null);
   const [allMessages, setAllMessages] = useState<ChatMessage[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [theme, setTheme] = useState<ThemeId>(() => getStoredTheme());
+
+  useEffect(() => { applyTheme(theme); }, [theme]);
 
   useEffect(() => {
     archiveOldLogs();
