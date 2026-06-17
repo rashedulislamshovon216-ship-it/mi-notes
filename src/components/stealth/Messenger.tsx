@@ -12,6 +12,9 @@ import {
   pruneExpiredStories,
   uid,
 } from "@/lib/stealth/storage";
+import { EmojiPicker } from "./EmojiPicker";
+import { SettingsPanel } from "./SettingsPanel";
+import { ThemeId, applyTheme, getStoredTheme } from "@/lib/stealth/themes";
 
 interface Props {
   onClose: () => void;
@@ -19,8 +22,6 @@ interface Props {
 }
 
 type View = "list" | "chat" | "story" | "profile";
-
-const EMOJIS = ["😀","😂","🥹","😍","🥰","😘","😎","🤔","😴","🤯","🥳","😭","🙄","😤","🤝","👍","👏","🙏","🔥","💯","🎉","❤️","💔","💕","✨","🌹","☕","🍕","🍻","⚡"];
 
 export function Messenger({ onClose, onPanic }: Props) {
   const [contacts, setContacts] = useState<Contact[]>(() => contactsRepo.list());
