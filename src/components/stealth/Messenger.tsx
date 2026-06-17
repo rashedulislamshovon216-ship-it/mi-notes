@@ -718,5 +718,7 @@ function previewOf(m?: ChatMessage | null) {
   if (m.message_type === "image") return "📷 Photo";
   if (m.message_type === "video") return "🎬 Video";
   if (m.message_type === "audio") return "🎤 Voice message";
+  if (m.message_type === "sticker") return `${m.log_payload.split("|")[0]} Sticker`;
+  if (m.message_type === "gif") return "✨ GIF";
   return m.log_payload;
 }
