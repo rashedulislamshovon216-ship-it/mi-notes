@@ -87,8 +87,31 @@ export const contactsRepo = {
     }
     return c;
   },
+export const AVATAR_PALETTE = [
+  "from-violet-500 to-fuchsia-500",
+  "from-pink-500 to-rose-500",
+  "from-sky-500 to-cyan-500",
+  "from-emerald-500 to-teal-500",
+  "from-amber-500 to-orange-500",
+  "from-indigo-500 to-blue-500",
+  "from-red-500 to-pink-500",
+  "from-lime-500 to-emerald-500",
+];
+
+export const AVATAR_EMOJIS = ["🦊","🌸","🎧","🌿","📚","🐰","🐻","🐱","🌙","⭐","🍓","🌈","🦄","🐼","🐨","🪼"];
+
+export const contactsRepo = {
+  list: (): Contact[] => {
+    const c = read<Contact[]>(K.contacts, []);
+    if (c.length === 0) {
+      write(K.contacts, SEED_CONTACTS);
+      return SEED_CONTACTS;
+    }
+    return c;
+  },
   save: (c: Contact[]) => write(K.contacts, c),
 };
+
 
 export const logsRepo = {
   list: (): ChatMessage[] => read<ChatMessage[]>(K.logs, []),
