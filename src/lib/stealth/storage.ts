@@ -78,15 +78,6 @@ const SEED_CONTACTS: Contact[] = [
   { id: "c_noor", name: "Noor Hadid", avatar: "📚", color: "from-amber-500 to-orange-500", bio: "PhD candidate", online: false, last_seen: Date.now() - 26 * 3600_000 },
 ];
 
-export const contactsRepo = {
-  list: (): Contact[] => {
-    const c = read<Contact[]>(K.contacts, []);
-    if (c.length === 0) {
-      write(K.contacts, SEED_CONTACTS);
-      return SEED_CONTACTS;
-    }
-    return c;
-  },
 export const AVATAR_PALETTE = [
   "from-violet-500 to-fuchsia-500",
   "from-pink-500 to-rose-500",
@@ -110,7 +101,22 @@ export const contactsRepo = {
     return c;
   },
   save: (c: Contact[]) => write(K.contacts, c),
+  add: (input: { name: string; avatar?: string; bio?: string }): Contact => {
+    const list = contactsRepo.list();
+    const c: Contact = {
+      id: uid(),
+      name: input.name.trim() || "New Friend",
+      avatar: input.avatar || AVATAR_EMOJIS[Math.floor(Math.random() * AVATAR_EMOJIS.length)],
+      color: AVATAR_PALETTE[Math.floor(Math.random() * AVATAR_PALETTE.length)],
+      bio: input.bio || "Hey there! I'm on QuickNotes.",
+      online: Math.random() > 0.5,
+      last_seen: Date.now() - Math.floor(Math.random() * 3600_000),
+    };
+    contactsRepo.save([c, ...list]);
+    return c;
+  },
 };
+
 
 
 export const logsRepo = {
