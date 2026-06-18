@@ -28,7 +28,11 @@ export interface ChatMessage {
   status?: DeliveryStatus;
   reply_to?: string | null;
   source?: "live" | "archive";
+  reactions?: Record<string, "me" | "them">; // emoji -> who
+  edited_at?: number;
+  starred?: boolean;
 }
+
 
 export interface Contact {
   id: string;
