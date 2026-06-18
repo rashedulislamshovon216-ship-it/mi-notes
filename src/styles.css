@@ -178,36 +178,64 @@
 
 /* ============ Liquid glass utilities ============ */
 @utility glass {
-  background: var(--msg-surface);
-  backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.06) 100%),
+    var(--msg-surface);
+  backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.06) inset,
-    0 20px 60px -20px rgba(0, 0, 0, 0.6);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 20px 60px -20px rgba(0, 0, 0, 0.65);
 }
 @utility glass-strong {
-  background: color-mix(in oklab, var(--msg-surface) 92%, black 8%);
-  backdrop-filter: blur(40px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+    color-mix(in oklab, var(--msg-surface) 94%, black 6%);
+  backdrop-filter: blur(44px) saturate(220%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 30px 80px -20px rgba(0, 0, 0, 0.7);
 }
 @utility glass-soft {
-  background: color-mix(in oklab, var(--msg-surface) 60%, transparent 40%);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01)),
+    color-mix(in oklab, var(--msg-surface) 55%, transparent 45%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+@utility glass-bubble-mine {
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--msg-mine) 96%, white 4%), var(--msg-mine));
+  color: var(--msg-bg);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.35),
+    0 8px 24px -8px rgba(var(--msg-glow), 0.45);
+}
+@utility glass-bubble-them {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03)),
+    var(--msg-them);
   backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #fff;
+  box-shadow: 0 6px 20px -10px rgba(0,0,0,0.55);
 }
 @utility glow-accent {
-  box-shadow: 0 10px 40px -10px rgba(var(--msg-glow), 0.45);
+  box-shadow: 0 10px 40px -10px rgba(var(--msg-glow), 0.55);
 }
 @utility scrollbar-none {
   &::-webkit-scrollbar { display: none; }
   scrollbar-width: none;
 }
 
-/* Aurora ambient background for messenger */
+/* Aurora ambient background — drifting blobs of accent color */
 @utility aurora-bg {
   background:
-    radial-gradient(60% 50% at 20% 10%, rgba(var(--msg-glow), 0.18), transparent 60%),
-    radial-gradient(40% 40% at 90% 90%, rgba(var(--msg-glow), 0.14), transparent 60%),
+    radial-gradient(60% 50% at 18% 10%, rgba(var(--msg-glow), 0.22), transparent 60%),
+    radial-gradient(45% 45% at 92% 88%, rgba(var(--msg-glow), 0.18), transparent 60%),
+    radial-gradient(35% 35% at 80% 20%, rgba(var(--msg-glow), 0.10), transparent 60%),
     var(--msg-bg);
 }
 
@@ -215,6 +243,11 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
 }
-@utility float-slow {
-  animation: float-slow 6s ease-in-out infinite;
+@utility float-slow { animation: float-slow 6s ease-in-out infinite; }
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.4); opacity: 0; }
 }
+@utility pulse-ring { animation: pulse-ring 1.6s ease-out infinite; }
+

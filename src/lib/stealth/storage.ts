@@ -28,7 +28,11 @@ export interface ChatMessage {
   status?: DeliveryStatus;
   reply_to?: string | null;
   source?: "live" | "archive";
+  reactions?: Record<string, "me" | "them">; // emoji -> who
+  edited_at?: number;
+  starred?: boolean;
 }
+
 
 export interface Contact {
   id: string;
@@ -74,6 +78,19 @@ const SEED_CONTACTS: Contact[] = [
   { id: "c_noor", name: "Noor Hadid", avatar: "📚", color: "from-amber-500 to-orange-500", bio: "PhD candidate", online: false, last_seen: Date.now() - 26 * 3600_000 },
 ];
 
+export const AVATAR_PALETTE = [
+  "from-violet-500 to-fuchsia-500",
+  "from-pink-500 to-rose-500",
+  "from-sky-500 to-cyan-500",
+  "from-emerald-500 to-teal-500",
+  "from-amber-500 to-orange-500",
+  "from-indigo-500 to-blue-500",
+  "from-red-500 to-pink-500",
+  "from-lime-500 to-emerald-500",
+];
+
+export const AVATAR_EMOJIS = ["🦊","🌸","🎧","🌿","📚","🐰","🐻","🐱","🌙","⭐","🍓","🌈","🦄","🐼","🐨","🪼"];
+
 export const contactsRepo = {
   list: (): Contact[] => {
     const c = read<Contact[]>(K.contacts, []);
@@ -84,7 +101,23 @@ export const contactsRepo = {
     return c;
   },
   save: (c: Contact[]) => write(K.contacts, c),
+  add: (input: { name: string; avatar?: string; bio?: string }): Contact => {
+    const list = contactsRepo.list();
+    const c: Contact = {
+      id: uid(),
+      name: input.name.trim() || "New Friend",
+      avatar: input.avatar || AVATAR_EMOJIS[Math.floor(Math.random() * AVATAR_EMOJIS.length)],
+      color: AVATAR_PALETTE[Math.floor(Math.random() * AVATAR_PALETTE.length)],
+      bio: input.bio || "Hey there! I'm on QuickNotes.",
+      online: Math.random() > 0.5,
+      last_seen: Date.now() - Math.floor(Math.random() * 3600_000),
+    };
+    contactsRepo.save([c, ...list]);
+    return c;
+  },
 };
+
+
 
 export const logsRepo = {
   list: (): ChatMessage[] => read<ChatMessage[]>(K.logs, []),
