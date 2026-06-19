@@ -313,6 +313,7 @@ export type Database = {
         Args: { _chat: string; _user: string }
         Returns: boolean
       }
+      mark_story_viewed: { Args: { _story: string }; Returns: undefined }
       search_users: {
         Args: { _q: string }
         Returns: {
