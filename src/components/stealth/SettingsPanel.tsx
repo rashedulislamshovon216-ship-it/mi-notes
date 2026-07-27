@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { THEMES, ThemeId, applyTheme } from "@/lib/stealth/themes";
-import { downloadBackup, importBackup } from "@/lib/stealth/backup";
+import { downloadBackup, downloadCloudBackup, importBackup } from "@/lib/stealth/backup";
+import { CloudProfile, myProfile, saveProfile, uploadMedia } from "@/lib/stealth/cloud";
+import { Avatar } from "./Avatar";
+import { AtSign, Camera, Check, Copy, Loader2, LogOut } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
 interface Props {
@@ -12,21 +15,19 @@ interface Props {
   onTheme: (t: ThemeId) => void;
 }
 
-interface Profile {
-  display_name: string | null;
-  avatar_url: string | null;
-  bio: string | null;
-}
+const STATUS_EMOJIS = ["🌙", "☕", "🎧", "💤", "🔥", "🌸", "🧊", "🚀", "🍀", "💌", "🐣", "✨", "🫧", "🍓", "🪐", "🎮"];
 
 export function SettingsPanel({ open, onClose, theme, onTheme }: Props) {
-  const [tab, setTab] = useState<"account" | "profile" | "theme" | "backup">("account");
+  const [tab, setTab] = useState<"account" | "profile" | "theme" | "backup">("profile");
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile>({ display_name: "", avatar_url: "", bio: "" });
+  const [profile, setProfile] = useState<CloudProfile | null>(null);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const avatarRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
@@ -34,13 +35,10 @@ export function SettingsPanel({ open, onClose, theme, onTheme }: Props) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!user) return;
-    supabase.from("profiles").select("display_name, avatar_url, bio").eq("id", user.id).maybeSingle()
-      .then(({ data }) => data && setProfile({ display_name: data.display_name ?? "", avatar_url: data.avatar_url ?? "", bio: data.bio ?? "" }));
-  }, [user]);
+  useEffect(() => { if (user && open) myProfile().then(setProfile); }, [user, open]);
 
-  const flash = (m: string) => { setStatus(m); setTimeout(() => setStatus(null), 2400); };
+  const flash = (m: string) => { setStatus(m); setTimeout(() => setStatus(null), 2600); };
+  const patch = (p: Partial<CloudProfile>) => setProfile((cur) => (cur ? { ...cur, ...p } : cur));
 
   const signInGoogle = async () => {
     setBusy(true);
@@ -48,6 +46,7 @@ export function SettingsPanel({ open, onClose, theme, onTheme }: Props) {
     setBusy(false);
     if (r.error) flash("Google sign-in failed");
   };
+
   const signInEmail = async () => {
     if (!email || !password) return flash("Email + password required");
     setBusy(true);
@@ -58,23 +57,42 @@ export function SettingsPanel({ open, onClose, theme, onTheme }: Props) {
     if (r.error) flash(r.error.message);
     else { setEmail(""); setPassword(""); flash(authMode === "signup" ? "Account created — check your inbox." : "Signed in."); }
   };
-  const signOut = async () => { await supabase.auth.signOut(); flash("Signed out."); };
 
-  const saveProfile = async () => {
-    if (!user) return;
+  const signOut = async () => { await supabase.auth.signOut(); setProfile(null); flash("Signed out."); };
+
+  const save = async () => {
+    if (!profile) return;
     setBusy(true);
-    const { error } = await supabase.from("profiles").upsert({
-      id: user.id, display_name: profile.display_name, avatar_url: profile.avatar_url, bio: profile.bio, theme,
-    });
+    const handle = (profile.username ?? "").trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+    const { error } = await saveProfile({
+      username: handle || null,
+      display_name: profile.display_name,
+      nickname: profile.nickname,
+      bio: profile.bio,
+      status_emoji: profile.status_emoji,
+      avatar_url: profile.avatar_url,
+      theme,
+    } as Partial<CloudProfile>);
     setBusy(false);
-    flash(error ? error.message : "Profile saved ✨");
+    flash(error ? (error.includes("duplicate") ? "That handle is taken" : error) : "Profile saved ✨");
   };
 
-  const onImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    const r = await importBackup(f);
-    flash(r.ok ? "Restored — refresh to see changes." : `Failed: ${r.error}`);
-    e.target.value = "";
+  const onAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; e.target.value = "";
+    if (!f) return;
+    setBusy(true);
+    const ref = await uploadMedia("avatars", f, f.name.split(".").pop() || "jpg");
+    setBusy(false);
+    if (!ref) return flash("Upload failed");
+    patch({ avatar_url: ref });
+    await saveProfile({ avatar_url: ref });
+    flash("Avatar updated");
+  };
+
+  const copyHandle = () => {
+    if (!profile?.username) return;
+    navigator.clipboard?.writeText(`@${profile.username}`);
+    setCopied(true); setTimeout(() => setCopied(false), 1600);
   };
 
   if (!open) return null;
@@ -82,76 +100,70 @@ export function SettingsPanel({ open, onClose, theme, onTheme }: Props) {
   return (
     <div className="fixed inset-0 z-40 grid place-items-end sm:place-items-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-md max-h-[90vh] glass-strong rounded-t-3xl sm:rounded-3xl overflow-hidden flex flex-col text-white animate-in slide-in-from-bottom-8 duration-300">
+        className="w-full sm:max-w-md max-h-[92dvh] glass-strong rounded-t-[28px] sm:rounded-[28px] overflow-hidden flex flex-col text-white animate-in slide-in-from-bottom-8 duration-300">
         <div className="px-5 py-4 border-b border-white/10 flex items-center gap-3">
           <h2 className="text-lg font-semibold tracking-tight">Settings</h2>
           <button onClick={onClose} className="ml-auto size-8 grid place-items-center rounded-full hover:bg-white/10">✕</button>
         </div>
 
         <nav className="flex gap-1 px-3 py-2 border-b border-white/10 text-[13px]">
-          {[["account","Account"],["profile","Profile"],["theme","Theme"],["backup","Backup"]].map(([k, label]) => (
+          {[["profile", "Profile"], ["theme", "Theme"], ["backup", "Backup"], ["account", "Account"]].map(([k, label]) => (
             <button key={k} onClick={() => setTab(k as typeof tab)}
-              className={`px-3 py-1.5 rounded-full transition ${tab === k ? "bg-white/15 text-white" : "text-white/60 hover:text-white"}`}>
+              className={`px-3 py-1.5 rounded-full transition ${tab === k ? "bg-white text-black font-medium" : "hover:bg-white/10 text-white/70"}`}>
               {label}
             </button>
           ))}
         </nav>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {tab === "account" && (
-            user ? (
-              <div className="space-y-3">
-                <div className="glass-soft rounded-2xl p-4 flex items-center gap-3">
-                  <div className="size-12 rounded-full bg-gradient-to-br from-white/30 to-white/10 grid place-items-center text-xl">
-                    {profile.avatar_url ? <img src={profile.avatar_url} className="size-full rounded-full object-cover" alt="" /> : "👤"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{profile.display_name || user.email}</div>
-                    <div className="text-xs text-white/50 truncate">{user.email}</div>
-                  </div>
-                </div>
-                <button onClick={signOut} className="w-full glass-soft rounded-2xl px-4 py-3 hover:bg-white/10 text-red-300">Sign out</button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <button onClick={signInGoogle} disabled={busy}
-                  className="w-full bg-white text-black rounded-2xl px-4 py-3 font-medium flex items-center justify-center gap-2 hover:bg-white/90 disabled:opacity-50">
-                  <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8a12 12 0 1 1 0-24c3 0 5.7 1.1 7.8 2.9l5.7-5.7A20 20 0 1 0 24 44c11 0 20-8.9 20-20 0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 19 12 24 12c3 0 5.7 1.1 7.8 2.9l5.7-5.7A20 20 0 0 0 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2c-2 1.4-4.5 2.2-7.2 2.2-5.2 0-9.6-3.3-11.2-8l-6.5 5C9.3 39.6 16 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.1 5.6l6.2 5.2c-.4.4 6.6-4.8 6.6-14.8 0-1.3-.1-2.4-.4-3.5z"/></svg>
-                  Continue with Google
-                </button>
-                <div className="flex items-center gap-3 text-xs text-white/40"><span className="flex-1 h-px bg-white/10" />or<span className="flex-1 h-px bg-white/10" /></div>
-                <div className="space-y-2">
-                  <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Email"
-                    className="w-full glass-soft rounded-xl px-4 py-3 outline-none placeholder:text-white/40" />
-                  <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password"
-                    className="w-full glass-soft rounded-xl px-4 py-3 outline-none placeholder:text-white/40" />
-                  <button onClick={signInEmail} disabled={busy}
-                    className="w-full bg-[var(--msg-accent)] text-black rounded-xl px-4 py-3 font-medium disabled:opacity-50 glow-accent">
-                    {authMode === "signin" ? "Sign in" : "Create account"}
-                  </button>
-                  <button onClick={() => setAuthMode(authMode === "signin" ? "signup" : "signin")}
-                    className="w-full text-xs text-white/60 hover:text-white py-1">
-                    {authMode === "signin" ? "New here? Create an account" : "Have an account? Sign in"}
-                  </button>
-                </div>
-              </div>
-            )
-          )}
-
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 select-text">
           {tab === "profile" && (
-            user ? (
+            profile ? (
               <div className="space-y-3">
-                <label className="block text-xs text-white/50">Display name</label>
-                <input value={profile.display_name ?? ""} onChange={(e) => setProfile({ ...profile, display_name: e.target.value })}
-                  className="w-full glass-soft rounded-xl px-4 py-3 outline-none" />
-                <label className="block text-xs text-white/50">Avatar URL</label>
-                <input value={profile.avatar_url ?? ""} onChange={(e) => setProfile({ ...profile, avatar_url: e.target.value })}
-                  placeholder="https://…" className="w-full glass-soft rounded-xl px-4 py-3 outline-none placeholder:text-white/40" />
-                <label className="block text-xs text-white/50">Bio</label>
-                <textarea value={profile.bio ?? ""} onChange={(e) => setProfile({ ...profile, bio: e.target.value })} rows={3}
-                  className="w-full glass-soft rounded-xl px-4 py-3 outline-none resize-none" />
-                <button onClick={saveProfile} disabled={busy}
-                  className="w-full bg-[var(--msg-accent)] text-black rounded-xl px-4 py-3 font-medium glow-accent disabled:opacity-50">
+                <div className="flex items-center gap-4">
+                  <button onClick={() => avatarRef.current?.click()} className="relative">
+                    <Avatar profile={profile} size={72} />
+                    <span className="absolute -bottom-1 -right-1 size-7 rounded-full bg-white text-black grid place-items-center">
+                      {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
+                    </span>
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <button onClick={copyHandle} className="flex items-center gap-1.5 text-sm text-[var(--msg-accent)]">
+                      @{profile.username ?? "set-a-handle"} {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                    </button>
+                    <p className="text-[11px] text-white/50 mt-1">Share this handle so friends can find you.</p>
+                  </div>
+                  <input ref={avatarRef} type="file" accept="image/*" hidden onChange={onAvatar} />
+                </div>
+
+                <Field label="Handle">
+                  <div className="relative">
+                    <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/40" />
+                    <input value={profile.username ?? ""} onChange={(e) => patch({ username: e.target.value })}
+                      className="w-full glass-soft rounded-xl pl-9 pr-4 py-3 outline-none" />
+                  </div>
+                </Field>
+                <Field label="Display name">
+                  <input value={profile.display_name ?? ""} onChange={(e) => patch({ display_name: e.target.value })}
+                    className="w-full glass-soft rounded-xl px-4 py-3 outline-none" />
+                </Field>
+                <Field label="Nickname (shown to friends)">
+                  <input value={profile.nickname ?? ""} onChange={(e) => patch({ nickname: e.target.value })}
+                    className="w-full glass-soft rounded-xl px-4 py-3 outline-none" />
+                </Field>
+                <Field label="Status">
+                  <div className="flex flex-wrap gap-1.5">
+                    {STATUS_EMOJIS.map((e) => (
+                      <button key={e} onClick={() => patch({ status_emoji: profile.status_emoji === e ? null : e })}
+                        className={`size-10 rounded-xl text-xl grid place-items-center transition ${profile.status_emoji === e ? "bg-white/20 ring-1 ring-white/40" : "glass-soft hover:bg-white/10"}`}>{e}</button>
+                    ))}
+                  </div>
+                </Field>
+                <Field label="Bio">
+                  <textarea value={profile.bio ?? ""} onChange={(e) => patch({ bio: e.target.value })} rows={3}
+                    className="w-full glass-soft rounded-xl px-4 py-3 outline-none resize-none" />
+                </Field>
+                <button onClick={save} disabled={busy}
+                  className="w-full bg-[var(--msg-accent)] text-[var(--msg-bg)] rounded-xl px-4 py-3 font-medium glow-accent disabled:opacity-50">
                   Save profile
                 </button>
               </div>
@@ -176,17 +188,71 @@ export function SettingsPanel({ open, onClose, theme, onTheme }: Props) {
           {tab === "backup" && (
             <div className="space-y-3">
               <div className="glass-soft rounded-2xl p-4 text-sm text-white/70">
-                Export everything (notes, contacts, messages, stories) as one JSON file. Restore by importing later or on another device.
+                Cloud backup pulls your chats, messages and stories from the server. Local backup saves your notes and device settings.
               </div>
-              <button onClick={downloadBackup} className="w-full bg-white text-black rounded-xl px-4 py-3 font-medium">⬇  Export backup</button>
-              <button onClick={() => importRef.current?.click()} className="w-full glass-soft rounded-xl px-4 py-3 hover:bg-white/10">⬆  Import backup</button>
-              <input ref={importRef} type="file" accept="application/json" hidden onChange={onImport} />
+              <button onClick={async () => { setBusy(true); await downloadCloudBackup(); setBusy(false); flash("Cloud backup downloaded"); }}
+                disabled={busy || !user}
+                className="w-full bg-white text-black rounded-xl px-4 py-3 font-medium disabled:opacity-50">⬇  Export cloud backup</button>
+              <button onClick={() => { downloadBackup(); flash("Notes backup downloaded"); }}
+                className="w-full glass-soft rounded-xl px-4 py-3 hover:bg-white/10">⬇  Export notes backup</button>
+              <button onClick={() => importRef.current?.click()} className="w-full glass-soft rounded-xl px-4 py-3 hover:bg-white/10">⬆  Import notes backup</button>
+              <input ref={importRef} type="file" accept="application/json" hidden
+                onChange={async (e) => {
+                  const f = e.target.files?.[0]; e.target.value = "";
+                  if (!f) return;
+                  const r = await importBackup(f);
+                  flash(r.ok ? "Restored — reopen the app to see changes." : `Failed: ${r.error}`);
+                }} />
             </div>
+          )}
+
+          {tab === "account" && (
+            user ? (
+              <div className="space-y-3">
+                <div className="glass-soft rounded-2xl p-4 flex items-center gap-3">
+                  <Avatar profile={profile} size={48} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{profile?.display_name || user.email}</div>
+                    <div className="text-xs text-white/50 truncate">{user.email}</div>
+                  </div>
+                </div>
+                <button onClick={signOut} className="w-full glass-soft rounded-2xl px-4 py-3 hover:bg-white/10 text-red-300 flex items-center justify-center gap-2">
+                  <LogOut className="size-4" /> Sign out
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <button onClick={signInGoogle} disabled={busy}
+                  className="w-full bg-white text-black rounded-2xl px-4 py-3 font-medium disabled:opacity-50">Continue with Google</button>
+                <div className="flex items-center gap-3 text-xs text-white/40"><span className="flex-1 h-px bg-white/10" />or<span className="flex-1 h-px bg-white/10" /></div>
+                <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Email"
+                  className="w-full glass-soft rounded-xl px-4 py-3 outline-none placeholder:text-white/40" />
+                <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password"
+                  className="w-full glass-soft rounded-xl px-4 py-3 outline-none placeholder:text-white/40" />
+                <button onClick={signInEmail} disabled={busy}
+                  className="w-full bg-[var(--msg-accent)] text-[var(--msg-bg)] rounded-xl px-4 py-3 font-medium glow-accent disabled:opacity-50">
+                  {authMode === "signin" ? "Sign in" : "Create account"}
+                </button>
+                <button onClick={() => setAuthMode(authMode === "signin" ? "signup" : "signin")}
+                  className="w-full text-xs text-white/60 hover:text-white py-1">
+                  {authMode === "signin" ? "New here? Create an account" : "Have an account? Sign in"}
+                </button>
+              </div>
+            )
           )}
         </div>
 
         {status && <div className="px-5 py-2 text-[12px] text-center text-[var(--msg-accent)] bg-black/40">{status}</div>}
       </div>
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="block text-xs text-white/50">{label}</span>
+      {children}
+    </label>
   );
 }
