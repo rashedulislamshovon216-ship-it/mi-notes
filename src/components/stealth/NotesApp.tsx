@@ -83,7 +83,7 @@ export function NotesApp({ onSecret, forcedNote }: Props) {
     <div className="h-dvh w-full bg-background text-foreground flex flex-col md:flex-row overflow-hidden">
       {/* ---------------- Library ---------------- */}
       <aside
-        className={`${active ? "hidden" : "flex"} md:flex flex-col w-full md:w-[360px] md:border-r border-border bg-sidebar`}
+        className={`${active ? "hidden" : "flex"} md:flex flex-col flex-1 min-h-0 md:flex-none w-full md:w-[360px] md:border-r border-border bg-sidebar`}
       >
         <header className="px-5 pt-7 pb-4">
           <div className="flex items-end justify-between">
