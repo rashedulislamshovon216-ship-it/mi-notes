@@ -58,51 +58,61 @@
 }
 
 :root {
-  --radius: 0.75rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --radius: 1rem;
+  /* Notes layer — warm ivory paper with plum ink and champagne gilding */
+  --background: oklch(0.973 0.011 78);
+  --foreground: oklch(0.221 0.045 330);
+  --card: oklch(0.99 0.006 85);
+  --card-foreground: oklch(0.221 0.045 330);
+  --popover: oklch(0.99 0.006 85);
+  --popover-foreground: oklch(0.221 0.045 330);
+  --primary: oklch(0.37 0.115 340);
+  --primary-foreground: oklch(0.98 0.008 85);
+  --secondary: oklch(0.938 0.018 80);
+  --secondary-foreground: oklch(0.3 0.07 335);
+  --muted: oklch(0.938 0.016 80);
+  --muted-foreground: oklch(0.505 0.028 330);
+  --accent: oklch(0.79 0.098 82);
+  --accent-foreground: oklch(0.24 0.05 330);
+  --destructive: oklch(0.54 0.2 22);
+  --destructive-foreground: oklch(0.98 0.008 85);
+  --border: oklch(0.898 0.017 80);
+  --input: oklch(0.898 0.017 80);
+  --ring: oklch(0.72 0.09 82);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+  --sidebar: oklch(0.958 0.013 80);
+  --sidebar-foreground: oklch(0.221 0.045 330);
+  --sidebar-primary: oklch(0.37 0.115 340);
+  --sidebar-primary-foreground: oklch(0.98 0.008 85);
+  --sidebar-accent: oklch(0.938 0.018 80);
+  --sidebar-accent-foreground: oklch(0.3 0.07 335);
+  --sidebar-border: oklch(0.898 0.017 80);
+  --sidebar-ring: oklch(0.72 0.09 82);
 
-  /* Messenger defaults (noir) */
-  --msg-bg: #050505;
-  --msg-surface: rgba(20, 20, 22, 0.72);
-  --msg-mine: rgba(245, 245, 247, 0.96);
-  --msg-them: rgba(30, 30, 32, 0.78);
-  --msg-muted: #8a8a8e;
-  --msg-accent: #ffffff;
-  --msg-glow: 255, 255, 255;
+  /* Messenger default — Velvet Ink */
+  --msg-bg: #0b0710;
+  --msg-surface: rgba(34, 21, 43, 0.66);
+  --msg-mine: rgba(233, 201, 143, 0.94);
+  --msg-them: rgba(255, 255, 255, 0.07);
+  --msg-muted: #a191ad;
+  --msg-accent: #e9c98f;
+  --msg-glow: 233, 201, 143;
 }
 
 /* ============ Messenger themes ============ */
+[data-theme="velvet"] {
+  --msg-bg: #0b0710;
+  --msg-surface: rgba(34, 21, 43, 0.66);
+  --msg-mine: rgba(233, 201, 143, 0.94);
+  --msg-them: rgba(255, 255, 255, 0.07);
+  --msg-muted: #a191ad;
+  --msg-accent: #e9c98f;
+  --msg-glow: 233, 201, 143;
+}
 [data-theme="noir"] {
   --msg-bg: #050505;
   --msg-surface: rgba(20, 20, 22, 0.72);
@@ -112,6 +122,7 @@
   --msg-accent: #ffffff;
   --msg-glow: 255, 255, 255;
 }
+
 [data-theme="aurora"] {
   --msg-bg: #07071a;
   --msg-surface: rgba(28, 18, 64, 0.55);
