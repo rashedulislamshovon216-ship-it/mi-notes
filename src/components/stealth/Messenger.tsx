@@ -257,7 +257,7 @@ function ContactsView({
         {chats.map((c) => (
           <li key={c.chatId} className="active:bg-white/5">
             <div className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition">
-              <button onClick={() => onProfile(c.chatId)} className="shrink-0">
+              <button onClick={() => onOpen(c.chatId)} onDoubleClick={() => onProfile(c.chatId)} className="shrink-0">
                 {c.isSelf
                   ? <span className="size-12 rounded-full glass grid place-items-center"><Bookmark className="size-5" /></span>
                   : <Avatar profile={c.other} size={48} online={isOnline(c.other?.last_seen)} nickname={c.nickname} />}
