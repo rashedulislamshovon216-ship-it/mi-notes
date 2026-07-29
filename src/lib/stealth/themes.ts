@@ -1,4 +1,4 @@
-export type ThemeId = "noir" | "aurora" | "sunset" | "mint";
+export type ThemeId = "velvet" | "noir" | "aurora" | "sunset" | "mint";
 
 export interface ThemeMeta {
   id: ThemeId;
@@ -8,6 +8,7 @@ export interface ThemeMeta {
 }
 
 export const THEMES: ThemeMeta[] = [
+  { id: "velvet", name: "Velvet Ink",     swatch: ["#0b0710", "#22152b", "#e9c98f", "#f2c6d8"], description: "Aubergine velvet with champagne gilding." },
   { id: "noir",   name: "Mono Noir",     swatch: ["#000000", "#111111", "#e5e5e5", "#ffffff"], description: "Pure black, silver edges." },
   { id: "aurora", name: "Aurora Glass",  swatch: ["#0a0a1a", "#1a1240", "#7c3aed", "#22d3ee"], description: "Violet nebula + cyan glow." },
   { id: "sunset", name: "Sunset Liquid", swatch: ["#1a0a14", "#3d1530", "#f97316", "#fb7185"], description: "Warm magenta dusk." },
@@ -17,10 +18,11 @@ export const THEMES: ThemeMeta[] = [
 const KEY = "qn.theme.v1";
 
 export function getStoredTheme(): ThemeId {
-  if (typeof window === "undefined") return "noir";
+  if (typeof window === "undefined") return "velvet";
   const v = localStorage.getItem(KEY) as ThemeId | null;
-  return v && THEMES.some((t) => t.id === v) ? v : "noir";
+  return v && THEMES.some((t) => t.id === v) ? v : "velvet";
 }
+
 
 export function applyTheme(t: ThemeId) {
   if (typeof document === "undefined") return;
