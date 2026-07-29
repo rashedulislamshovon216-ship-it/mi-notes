@@ -180,7 +180,7 @@ export function Messenger({ onClose, onPanic }: Props) {
         />
       )}
       {storyFile && <StoryEditor file={storyFile} onCancel={() => setStoryFile(null)} onPost={postStory} />}
-      {findOpen && <FindPeople meId={me.id} onClose={() => setFindOpen(false)} onOpenChat={(id) => { refresh(); openChat(id); }} />}
+      {findOpen && <FindPeople meId={me.id} onClose={() => setFindOpen(false)} onOpenChat={(id) => { openChat(id); }} />}
 
       {incoming && !call && (
         <IncomingCall
