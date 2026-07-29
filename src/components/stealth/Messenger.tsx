@@ -92,12 +92,16 @@ export function Messenger({ onClose, onPanic }: Props) {
 
   const active = chats.find((c) => c.chatId === activeId) ?? null;
 
-  const openChat = (chatId: string) => {
+  const openChat = async (chatId: string) => {
     localStorage.setItem(readKey(chatId), String(Date.now()));
     setActiveId(chatId);
     setView("chat");
     setChats((p) => p.map((c) => (c.chatId === chatId ? { ...c, unread: 0 } : c)));
+    // A chat started from search isn't in the list yet — pull it in so the
+    // thread renders instead of an empty (black) screen.
+    if (!chats.some((c) => c.chatId === chatId)) await refresh();
   };
+
 
   const startCall = async (kind: "audio" | "video") => {
     if (!active?.other || active.isSelf) return;
@@ -156,6 +160,17 @@ export function Messenger({ onClose, onPanic }: Props) {
           onChanged={refresh}
         />
       )}
+      {(view === "chat" || view === "profile") && !active && (
+        <div className="w-full h-full grid place-items-center gap-3">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="size-6 animate-spin text-[var(--msg-muted)]" />
+            <button onClick={() => { setView("list"); refresh(); }} className="text-xs glass-soft rounded-full px-4 py-2">
+              Back to chats
+            </button>
+          </div>
+        </div>
+      )}
+
 
       {viewStory && (
         <StoryViewer
@@ -165,7 +180,7 @@ export function Messenger({ onClose, onPanic }: Props) {
         />
       )}
       {storyFile && <StoryEditor file={storyFile} onCancel={() => setStoryFile(null)} onPost={postStory} />}
-      {findOpen && <FindPeople meId={me.id} onClose={() => setFindOpen(false)} onOpenChat={(id) => { refresh(); openChat(id); }} />}
+      {findOpen && <FindPeople meId={me.id} onClose={() => setFindOpen(false)} onOpenChat={(id) => { openChat(id); }} />}
 
       {incoming && !call && (
         <IncomingCall
@@ -242,7 +257,7 @@ function ContactsView({
         {chats.map((c) => (
           <li key={c.chatId} className="active:bg-white/5">
             <div className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition">
-              <button onClick={() => onProfile(c.chatId)} className="shrink-0">
+              <button onClick={() => onOpen(c.chatId)} onDoubleClick={() => onProfile(c.chatId)} className="shrink-0">
                 {c.isSelf
                   ? <span className="size-12 rounded-full glass grid place-items-center"><Bookmark className="size-5" /></span>
                   : <Avatar profile={c.other} size={48} online={isOnline(c.other?.last_seen)} nickname={c.nickname} />}
