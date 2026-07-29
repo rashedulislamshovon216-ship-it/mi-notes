@@ -160,6 +160,17 @@ export function Messenger({ onClose, onPanic }: Props) {
           onChanged={refresh}
         />
       )}
+      {(view === "chat" || view === "profile") && !active && (
+        <div className="w-full h-full grid place-items-center gap-3">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="size-6 animate-spin text-[var(--msg-muted)]" />
+            <button onClick={() => { setView("list"); refresh(); }} className="text-xs glass-soft rounded-full px-4 py-2">
+              Back to chats
+            </button>
+          </div>
+        </div>
+      )}
+
 
       {viewStory && (
         <StoryViewer
