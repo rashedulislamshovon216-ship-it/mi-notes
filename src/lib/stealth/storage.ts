@@ -8,12 +8,35 @@ const K = {
   meta: "sys.meta.v1",
 };
 
+export interface NoteAttachment {
+  id: string;
+  kind: "image" | "audio";
+  dataUrl: string;
+  name?: string;
+}
+
+export const NOTE_TAGS = [
+  { id: "none",    label: "No tag",   dot: "#a9a2b0" },
+  { id: "journal", label: "Journal",  dot: "#b98a3c" },
+  { id: "idea",    label: "Idea",     dot: "#6e2a55" },
+  { id: "task",    label: "Tasks",    dot: "#2f7d6a" },
+  { id: "study",   label: "Study",    dot: "#3b5fa8" },
+  { id: "private", label: "Private",  dot: "#b1435c" },
+] as const;
+
+export type NoteTag = (typeof NOTE_TAGS)[number]["id"];
+
 export interface Note {
   id: string;
   title: string;
   body: string;
   updatedAt: number;
+  createdAt?: number;
+  tag?: NoteTag;
+  pinned?: boolean;
+  attachments?: NoteAttachment[];
 }
+
 
 export type MessageType = "text" | "image" | "video" | "audio" | "sticker" | "gif";
 export type DeliveryStatus = "sent" | "delivered" | "read";
