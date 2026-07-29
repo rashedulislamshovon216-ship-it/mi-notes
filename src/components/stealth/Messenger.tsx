@@ -92,12 +92,16 @@ export function Messenger({ onClose, onPanic }: Props) {
 
   const active = chats.find((c) => c.chatId === activeId) ?? null;
 
-  const openChat = (chatId: string) => {
+  const openChat = async (chatId: string) => {
     localStorage.setItem(readKey(chatId), String(Date.now()));
     setActiveId(chatId);
     setView("chat");
     setChats((p) => p.map((c) => (c.chatId === chatId ? { ...c, unread: 0 } : c)));
+    // A chat started from search isn't in the list yet — pull it in so the
+    // thread renders instead of an empty (black) screen.
+    if (!chats.some((c) => c.chatId === chatId)) await refresh();
   };
+
 
   const startCall = async (kind: "audio" | "video") => {
     if (!active?.other || active.isSelf) return;
