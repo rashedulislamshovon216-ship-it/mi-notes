@@ -20,20 +20,19 @@ function Index() {
   const [unlocked, setUnlocked] = useState(false);
   const [forcedNote, setForcedNote] = useState<Note | null>(null);
 
-  // Emergency privacy: lock if the tab/app loses focus.
+  // Emergency privacy: lock only when the tab is actually hidden (app switch /
+  // screen off). A plain window `blur` also fires for file pickers, the camera
+  // sheet and the editor preview iframe, which used to lock mid-action and made
+  // sending media or posting a story impossible.
   useEffect(() => {
     if (!unlocked) return;
-    const lock = () => setUnlocked(false);
-    const onVis = () => document.hidden && lock();
-    window.addEventListener("blur", lock);
-    document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("pagehide", lock);
-    return () => {
-      window.removeEventListener("blur", lock);
-      document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("pagehide", lock);
+    const onVis = () => {
+      if (document.visibilityState === "hidden") setUnlocked(false);
     };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
   }, [unlocked]);
+
 
   const panic = () => {
     setForcedNote({
