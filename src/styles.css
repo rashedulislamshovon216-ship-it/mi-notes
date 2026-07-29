@@ -188,8 +188,38 @@
 
 @layer base {
   * { border-color: var(--color-border); }
-  body { background-color: var(--color-background); color: var(--color-foreground); }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3, h4, .font-display { font-family: var(--font-display); letter-spacing: -0.02em; }
 }
+
+/* ============ Notes layer surfaces ============ */
+@utility paper {
+  background-color: var(--color-card);
+  background-image:
+    radial-gradient(120% 90% at 8% 0%, color-mix(in oklab, var(--color-accent) 16%, transparent), transparent 60%),
+    radial-gradient(90% 70% at 100% 100%, color-mix(in oklab, var(--color-primary) 9%, transparent), transparent 65%);
+  box-shadow:
+    0 1px 0 color-mix(in oklab, var(--color-foreground) 4%, transparent),
+    0 18px 40px -28px color-mix(in oklab, var(--color-primary) 45%, transparent);
+}
+@utility gild {
+  background-image: linear-gradient(100deg,
+    color-mix(in oklab, var(--color-accent) 90%, white 10%),
+    color-mix(in oklab, var(--color-primary) 70%, var(--color-accent) 30%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@utility hairline {
+  border: 1px solid color-mix(in oklab, var(--color-foreground) 8%, transparent);
+}
+
 
 /* ============ Liquid glass utilities ============ */
 @utility glass {
