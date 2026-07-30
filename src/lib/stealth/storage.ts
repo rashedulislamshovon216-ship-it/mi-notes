@@ -10,9 +10,21 @@ const K = {
 
 export interface NoteAttachment {
   id: string;
-  kind: "image" | "audio";
+  kind: "image" | "audio" | "video" | "file";
   dataUrl: string;
   name?: string;
+}
+
+export interface NoteCanvasItem {
+  id: string;
+  kind: "text" | "image";
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  text?: string;
+  dataUrl?: string;
+  color?: "gold" | "rose" | "mint" | "ink";
 }
 
 export const NOTE_TAGS = [
@@ -35,6 +47,7 @@ export interface Note {
   tag?: NoteTag;
   pinned?: boolean;
   attachments?: NoteAttachment[];
+  canvasItems?: NoteCanvasItem[];
 }
 
 

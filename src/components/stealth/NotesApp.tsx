@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft, Check, Eye, Image as ImageIcon, Maximize2, Mic, Minimize2, Pen,
-  Pin, Plus, Search, Square, Star, Trash2, X,
+  ArrowLeft, Check, Code2, Eye, Image as ImageIcon, LayoutPanelTop, Maximize2, Mic, Minimize2, Move,
+  Pen, Pin, Plus, Search, Square, Star, Trash2, Type, X,
 } from "lucide-react";
-import { NOTE_TAGS, Note, NoteAttachment, NoteTag, SECRET_TITLE, notesRepo, uid } from "@/lib/stealth/storage";
-import { noteStats, renderMarkdown } from "@/lib/stealth/markdown";
+import { NOTE_TAGS, Note, NoteAttachment, NoteCanvasItem, NoteTag, SECRET_TITLE, notesRepo, uid } from "@/lib/stealth/storage";
+import { noteStats, renderNotePreview } from "@/lib/stealth/markdown";
 
 interface Props {
   onSecret: () => void;
@@ -224,8 +224,13 @@ function Editor({
   const chunks = useRef<Blob[]>([]);
   const [recording, setRecording] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
+  const [mode, setMode] = useState<"write" | "canvas">("write");
   const s = noteStats(note.body);
   const meta = tagMeta(note.tag);
+
+  const markPicker = () => {
+    (window as unknown as { __quickNotesFilePickerUntil?: number }).__quickNotesFilePickerUntil = Date.now() + 12_000;
+  };
 
   const wrap = (before: string, after = before) => {
     const el = areaRef.current;
@@ -259,7 +264,12 @@ function Editor({
     if (!f) return;
     const reader = new FileReader();
     reader.onload = () =>
-      addAttachment({ id: uid(), kind: "image", dataUrl: String(reader.result), name: f.name });
+      addAttachment({
+        id: uid(),
+        kind: f.type.startsWith("image") ? "image" : f.type.startsWith("video") ? "video" : "file",
+        dataUrl: String(reader.result),
+        name: f.name,
+      });
     reader.readAsDataURL(f);
   };
 
@@ -317,6 +327,13 @@ function Editor({
         <button onClick={onTogglePreview} className="size-9 grid place-items-center rounded-full hover:bg-secondary" aria-label="Toggle preview">
           {preview ? <Pen className="size-4" /> : <Eye className="size-4" />}
         </button>
+        <button
+          onClick={() => { setMode((m) => (m === "canvas" ? "write" : "canvas")); if (preview) onTogglePreview(); }}
+          className={`size-9 grid place-items-center rounded-full hover:bg-secondary ${mode === "canvas" ? "text-primary" : ""}`}
+          aria-label="Canvas mode"
+        >
+          <LayoutPanelTop className="size-4" />
+        </button>
         <button onClick={onToggleFocus} className="size-9 grid place-items-center rounded-full hover:bg-secondary" aria-label="Focus mode">
           {focus ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
         </button>
@@ -354,7 +371,9 @@ function Editor({
         </p>
 
         {preview ? (
-          <div className="px-4 md:px-8 pb-10">{renderMarkdown(note.body || "_Nothing written yet._")}</div>
+          <div className="px-4 md:px-8 pb-10">{renderNotePreview(note.body)}</div>
+        ) : mode === "canvas" ? (
+          <CanvasBoard note={note} onChange={onChange} />
         ) : (
           <textarea
             ref={areaRef}
@@ -371,8 +390,12 @@ function Editor({
               <div key={a.id} className="relative rounded-2xl overflow-hidden hairline paper p-2">
                 {a.kind === "image" ? (
                   <img src={a.dataUrl} alt={a.name ?? "attachment"} className="w-full h-28 object-cover rounded-xl" />
-                ) : (
+                ) : a.kind === "video" ? (
+                  <video src={a.dataUrl} controls className="w-full h-28 object-cover rounded-xl" />
+                ) : a.kind === "audio" ? (
                   <audio src={a.dataUrl} controls className="w-full" />
+                ) : (
+                  <a href={a.dataUrl} download={a.name ?? "note-file"} className="flex h-28 items-center justify-center rounded-xl bg-secondary px-3 text-center text-xs text-muted-foreground">{a.name ?? "Download file"}</a>
                 )}
                 <button
                   onClick={() => onChange({ attachments: (note.attachments ?? []).filter((x) => x.id !== a.id) })}
@@ -399,12 +422,100 @@ function Editor({
           <ToolBtn onClick={() => prefixLine("- [ ] ")}><Square className="size-3.5" /></ToolBtn>
           <ToolBtn onClick={() => prefixLine("> ")}>❞</ToolBtn>
           <span className="mx-1 w-px h-5 bg-border shrink-0" />
-          <ToolBtn onClick={() => fileRef.current?.click()}><ImageIcon className="size-4" /></ToolBtn>
+          <ToolBtn onClick={() => { markPicker(); fileRef.current?.click(); }}><ImageIcon className="size-4" /></ToolBtn>
           <ToolBtn onClick={toggleRecord} active={recording}><Mic className="size-4" /></ToolBtn>
-          <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
+          <input ref={fileRef} type="file" accept="image/*,video/*,.pdf,.txt,.md,.json,.html,.css,.js" hidden onChange={onFile} />
           <span className="ml-auto text-[11px] text-muted-foreground shrink-0 pl-2 sm:hidden">{s.words}w</span>
         </div>
       )}
+    </div>
+  );
+}
+
+function CanvasBoard({ note, onChange }: { note: Note; onChange: (patch: Partial<Note>) => void }) {
+  const boardRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLInputElement>(null);
+  const [drag, setDrag] = useState<{ id: string; dx: number; dy: number } | null>(null);
+  const items = note.canvasItems ?? [];
+
+  const markPicker = () => {
+    (window as unknown as { __quickNotesFilePickerUntil?: number }).__quickNotesFilePickerUntil = Date.now() + 12_000;
+  };
+  const saveItems = (next: NoteCanvasItem[]) => onChange({ canvasItems: next });
+  const addText = () => saveItems([...items, { id: uid(), kind: "text", x: 28, y: 28 + items.length * 18, w: 210, h: 132, text: "New idea…", color: "gold" }]);
+  const patchItem = (id: string, patch: Partial<NoteCanvasItem>) => saveItems(items.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+  const removeItem = (id: string) => saveItems(items.filter((it) => it.id !== id));
+
+  const addImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; e.target.value = "";
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => saveItems([...items, { id: uid(), kind: "image", x: 34, y: 34 + items.length * 20, w: 230, h: 170, dataUrl: String(reader.result) }]);
+    reader.readAsDataURL(f);
+  };
+
+  const move = (clientX: number, clientY: number) => {
+    if (!drag || !boardRef.current) return;
+    const rect = boardRef.current.getBoundingClientRect();
+    patchItem(drag.id, {
+      x: Math.max(8, Math.min(rect.width - 72, clientX - rect.left - drag.dx)),
+      y: Math.max(8, Math.min(rect.height - 72, clientY - rect.top - drag.dy)),
+    });
+  };
+
+  return (
+    <div className="px-4 md:px-8 pb-10">
+      <div className="mb-3 flex items-center gap-2 overflow-x-auto scrollbar-none">
+        <button onClick={addText} className="shrink-0 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground flex items-center gap-1.5">
+          <Type className="size-3.5" /> Text
+        </button>
+        <button onClick={() => { markPicker(); imageRef.current?.click(); }} className="shrink-0 rounded-full bg-secondary px-3 py-2 text-xs font-semibold text-secondary-foreground flex items-center gap-1.5">
+          <ImageIcon className="size-3.5" /> Image
+        </button>
+        <span className="text-[11px] text-muted-foreground">Drag cards freely around the canvas</span>
+        <input ref={imageRef} type="file" accept="image/*" hidden onChange={addImage} />
+      </div>
+      <div
+        ref={boardRef}
+        onMouseMove={(e) => move(e.clientX, e.clientY)}
+        onMouseUp={() => setDrag(null)}
+        onMouseLeave={() => setDrag(null)}
+        onTouchMove={(e) => move(e.touches[0].clientX, e.touches[0].clientY)}
+        onTouchEnd={() => setDrag(null)}
+        className="relative min-h-[62vh] overflow-hidden rounded-[28px] border border-border bg-card paper"
+      >
+        <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(var(--border)_1px,transparent_1px),linear-gradient(90deg,var(--border)_1px,transparent_1px)] [background-size:32px_32px]" />
+        {items.length === 0 && (
+          <div className="absolute inset-0 grid place-items-center text-center text-sm text-muted-foreground px-8">
+            <div><Move className="mx-auto mb-2 size-6 opacity-50" />Add text or images, then arrange them like a private moodboard.</div>
+          </div>
+        )}
+        {items.map((it) => (
+          <div
+            key={it.id}
+            className={`absolute z-10 rounded-2xl border border-foreground/10 shadow-xl touch-none ${it.color === "rose" ? "bg-rose-100" : it.color === "mint" ? "bg-emerald-100" : it.color === "ink" ? "bg-primary text-primary-foreground" : "bg-amber-100"}`}
+            style={{ left: it.x, top: it.y, width: it.w, minHeight: it.h }}
+          >
+            <div
+              onMouseDown={(e) => setDrag({ id: it.id, dx: e.nativeEvent.offsetX, dy: e.nativeEvent.offsetY })}
+              onTouchStart={(e) => {
+                const r = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+                setDrag({ id: it.id, dx: e.touches[0].clientX - r.left, dy: e.touches[0].clientY - r.top });
+              }}
+              className="flex cursor-grab items-center gap-1.5 rounded-t-2xl px-2 py-1.5 text-[10px] opacity-70 active:cursor-grabbing"
+            >
+              <Move className="size-3" /> move
+              <button onClick={() => removeItem(it.id)} className="ml-auto rounded-full p-1 hover:bg-foreground/10" aria-label="Remove canvas item"><X className="size-3" /></button>
+            </div>
+            {it.kind === "text" ? (
+              <textarea value={it.text ?? ""} onChange={(e) => patchItem(it.id, { text: e.target.value })}
+                className="min-h-24 w-full resize-none bg-transparent px-3 pb-3 text-sm leading-relaxed outline-none" />
+            ) : (
+              <img src={it.dataUrl} alt="Canvas attachment" className="w-full rounded-b-2xl object-cover" style={{ minHeight: it.h - 28 }} />
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -46,17 +46,21 @@ export function Messenger({ onClose, onPanic }: Props) {
 
   useEffect(() => { applyTheme(theme); }, [theme]);
 
+  const markPicker = () => {
+    (window as unknown as { __quickNotesFilePickerUntil?: number }).__quickNotesFilePickerUntil = Date.now() + 12_000;
+  };
+
   const refresh = useCallback(async () => {
     const [c, s] = await Promise.all([listChats(), listStories()]);
-    setChats(
-      c.map((x) => {
+    const next = c.map((x) => {
         const lastRead = Number(localStorage.getItem(readKey(x.chatId)) ?? 0);
         const unread =
           x.last && x.last.sender_id !== me?.id && new Date(x.last.created_at).getTime() > lastRead ? 1 : 0;
         return { ...x, unread };
-      }),
-    );
+      });
+    setChats(next);
     setStories(s);
+    return next;
   }, [me?.id]);
 
   const boot = useCallback(async () => {
@@ -95,11 +99,14 @@ export function Messenger({ onClose, onPanic }: Props) {
   const openChat = async (chatId: string) => {
     localStorage.setItem(readKey(chatId), String(Date.now()));
     setActiveId(chatId);
-    setView("chat");
     setChats((p) => p.map((c) => (c.chatId === chatId ? { ...c, unread: 0 } : c)));
     // A chat started from search isn't in the list yet — pull it in so the
     // thread renders instead of an empty (black) screen.
-    if (!chats.some((c) => c.chatId === chatId)) await refresh();
+    if (!chats.some((c) => c.chatId === chatId)) {
+      const next = await refresh();
+      if (!next.some((c) => c.chatId === chatId)) return;
+    }
+    setView("chat");
   };
 
 
@@ -139,6 +146,7 @@ export function Messenger({ onClose, onPanic }: Props) {
           onFind={() => setFindOpen(true)}
           onStoryClick={setViewStory}
           onPickStoryFile={setStoryFile}
+          onBeforeFilePick={markPicker}
         />
       )}
       {view === "chat" && active && (
@@ -205,13 +213,14 @@ export function Messenger({ onClose, onPanic }: Props) {
 /* ============================ CHAT LIST ============================ */
 function ContactsView({
   me, chats, stories, search, setSearch, onOpen, onProfile, onClose, onSettings, onFind,
-  onStoryClick, onPickStoryFile,
+  onStoryClick, onPickStoryFile, onBeforeFilePick,
 }: {
   me: CloudProfile; chats: ChatSummary[]; stories: StoryRow[];
   search: string; setSearch: (s: string) => void;
   onOpen: (id: string) => void; onProfile: (id: string) => void; onClose: () => void;
   onSettings: () => void; onFind: () => void;
   onStoryClick: (s: StoryRow) => void; onPickStoryFile: (f: File) => void;
+  onBeforeFilePick: () => void;
 }) {
   const storyInput = useRef<HTMLInputElement>(null);
   const mine = stories.filter((s) => s.user_id === me.id);
@@ -242,7 +251,7 @@ function ContactsView({
       </div>
 
       <div className="px-3 pb-3 flex gap-3 overflow-x-auto border-b border-white/5 scrollbar-none">
-        <button onClick={() => storyInput.current?.click()} className="flex flex-col items-center gap-1 shrink-0">
+        <button onClick={() => { onBeforeFilePick(); storyInput.current?.click(); }} className="flex flex-col items-center gap-1 shrink-0">
           <span className="size-14 rounded-full glass grid place-items-center text-2xl glow-accent">＋</span>
           <span className="text-[10px] text-[var(--msg-muted)]">Your story</span>
         </button>
@@ -573,8 +582,8 @@ function ChatView({ me, chat, onBack, onProfile, onPanic, onSettings, onCall }: 
               placeholder={editing ? "Edit message…" : "Message"} rows={1}
               className="flex-1 resize-none outline-none text-[15px] bg-transparent max-h-32 placeholder:text-white/40 py-2 select-text" />
             {uploading && <Loader2 className="size-4 animate-spin text-white/60 mb-3" />}
-            <button onClick={() => fileRef.current?.click()} className="size-9 grid place-items-center text-white/60 hover:text-white shrink-0"><Paperclip className="size-5" /></button>
-            <button onClick={() => camRef.current?.click()} className="size-9 grid place-items-center text-white/60 hover:text-white shrink-0"><Camera className="size-5" /></button>
+            <button onClick={() => { (window as unknown as { __quickNotesFilePickerUntil?: number }).__quickNotesFilePickerUntil = Date.now() + 12_000; fileRef.current?.click(); }} className="size-9 grid place-items-center text-white/60 hover:text-white shrink-0"><Paperclip className="size-5" /></button>
+            <button onClick={() => { (window as unknown as { __quickNotesFilePickerUntil?: number }).__quickNotesFilePickerUntil = Date.now() + 12_000; camRef.current?.click(); }} className="size-9 grid place-items-center text-white/60 hover:text-white shrink-0"><Camera className="size-5" /></button>
             <input ref={fileRef} type="file" hidden onChange={onFiles} />
             <input ref={camRef} type="file" accept="image/*,video/*" capture="environment" hidden onChange={onFiles} />
           </div>
