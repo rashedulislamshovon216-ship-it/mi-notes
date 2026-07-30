@@ -169,6 +169,42 @@ export function renderMarkdown(src: string): ReactNode {
   return <div className="text-[15px]">{blocks}</div>;
 }
 
+export function looksLikeHtml(src: string) {
+  const s = src.trim();
+  return /^<!doctype\s+html/i.test(s) || /^<html[\s>]/i.test(s) || /<(body|main|section|article|div|style|h1|p|button|canvas|svg)[\s>]/i.test(s);
+}
+
+export function renderNotePreview(src: string): ReactNode {
+  const body = src.trim();
+  if (!body) return renderMarkdown("_Nothing written yet._");
+  if (!looksLikeHtml(body)) return renderMarkdown(src);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between rounded-2xl bg-secondary px-3 py-2 text-[11px] text-muted-foreground">
+        <span>HTML preview</span>
+        <span>Scripts blocked</span>
+      </div>
+      <iframe
+        title="HTML note preview"
+        sandbox="allow-forms allow-popups allow-modals"
+        srcDoc={sanitizeHtmlPreview(body)}
+        className="h-[60vh] w-full rounded-2xl border border-border bg-white shadow-inner"
+      />
+    </div>
+  );
+}
+
+function sanitizeHtmlPreview(src: string) {
+  const cleaned = src
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/javascript:/gi, "");
+
+  if (/^<!doctype\s+html/i.test(cleaned) || /^<html[\s>]/i.test(cleaned)) return cleaned;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html{font-family:Inter,ui-sans-serif,system-ui;background:#fff;color:#111}body{margin:0;padding:20px;min-height:100vh;box-sizing:border-box}*{box-sizing:border-box}img,video,svg,canvas{max-width:100%;height:auto}button,input,textarea,select{font:inherit}</style></head><body>${cleaned}</body></html>`;
+}
+
 export function noteStats(body: string) {
   const words = body.trim() ? body.trim().split(/\s+/).length : 0;
   return {

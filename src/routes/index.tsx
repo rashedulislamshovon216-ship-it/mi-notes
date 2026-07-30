@@ -27,7 +27,8 @@ function Index() {
   useEffect(() => {
     if (!unlocked) return;
     const onVis = () => {
-      if (document.visibilityState === "hidden") setUnlocked(false);
+      const pickerUntil = (window as unknown as { __quickNotesFilePickerUntil?: number }).__quickNotesFilePickerUntil ?? 0;
+      if (document.visibilityState === "hidden" && Date.now() > pickerUntil) setUnlocked(false);
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
