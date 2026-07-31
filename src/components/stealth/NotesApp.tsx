@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft, Check, Code2, Eye, Image as ImageIcon, LayoutPanelTop, Maximize2, Mic, Minimize2, Move,
+  ArrowLeft, Check, Eye, Image as ImageIcon, LayoutPanelTop, Maximize2, Mic, Minimize2, Move,
   Pen, Pin, Plus, Search, Square, Star, Trash2, Type, X,
 } from "lucide-react";
 import { NOTE_TAGS, Note, NoteAttachment, NoteCanvasItem, NoteTag, SECRET_TITLE, notesRepo, uid } from "@/lib/stealth/storage";
