@@ -33,6 +33,7 @@ export function Messenger({ onClose, onPanic }: Props) {
   const [ready, setReady] = useState(false);
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeChat, setActiveChat] = useState<ChatSummary | null>(null);
   const [view, setView] = useState<View>("list");
   const [search, setSearch] = useState("");
   const [stories, setStories] = useState<StoryRow[]>([]);
@@ -59,6 +60,10 @@ export function Messenger({ onClose, onPanic }: Props) {
         return { ...x, unread };
       });
     setChats(next);
+    setActiveChat((current) => {
+      if (!current) return null;
+      return next.find((chat) => chat.chatId === current.chatId) ?? current;
+    });
     setStories(s);
     return next;
   }, [me?.id]);
@@ -94,19 +99,22 @@ export function Messenger({ onClose, onPanic }: Props) {
     });
   }, [chats, search]);
 
-  const active = chats.find((c) => c.chatId === activeId) ?? null;
+  const active = activeChat;
 
   const openChat = async (chatId: string) => {
     localStorage.setItem(readKey(chatId), String(Date.now()));
-    setActiveId(chatId);
-    setChats((p) => p.map((c) => (c.chatId === chatId ? { ...c, unread: 0 } : c)));
-    // A chat started from search isn't in the list yet — pull it in so the
-    // thread renders instead of an empty (black) screen.
-    if (!chats.some((c) => c.chatId === chatId)) {
+    let selected = chats.find((chat) => chat.chatId === chatId) ?? null;
+    if (!selected) {
       const next = await refresh();
-      if (!next.some((c) => c.chatId === chatId)) return;
+      selected = next.find((chat) => chat.chatId === chatId) ?? null;
     }
+    if (!selected) return false;
+    const opened = { ...selected, unread: 0 };
+    setActiveId(chatId);
+    setActiveChat(opened);
+    setChats((current) => current.map((chat) => (chat.chatId === chatId ? opened : chat)));
     setView("chat");
+    return true;
   };
 
 
@@ -140,7 +148,13 @@ export function Messenger({ onClose, onPanic }: Props) {
         <ContactsView
           me={me} chats={filtered} stories={stories} search={search} setSearch={setSearch}
           onOpen={openChat}
-          onProfile={(id) => { setActiveId(id); setView("profile"); }}
+          onProfile={(id) => {
+            const selected = chats.find((chat) => chat.chatId === id) ?? null;
+            if (!selected) return;
+            setActiveId(id);
+            setActiveChat(selected);
+            setView("profile");
+          }}
           onClose={onClose}
           onSettings={() => setSettingsOpen(true)}
           onFind={() => setFindOpen(true)}
@@ -153,7 +167,7 @@ export function Messenger({ onClose, onPanic }: Props) {
         <ChatView
           key={active.chatId}
           me={me} chat={active}
-          onBack={() => { setView("list"); refresh(); }}
+          onBack={() => { setView("list"); setActiveId(null); setActiveChat(null); refresh(); }}
           onProfile={() => setView("profile")}
           onPanic={onPanic}
           onSettings={() => setSettingsOpen(true)}
@@ -188,7 +202,7 @@ export function Messenger({ onClose, onPanic }: Props) {
         />
       )}
       {storyFile && <StoryEditor file={storyFile} onCancel={() => setStoryFile(null)} onPost={postStory} />}
-      {findOpen && <FindPeople meId={me.id} onClose={() => setFindOpen(false)} onOpenChat={(id) => { openChat(id); }} />}
+      {findOpen && <FindPeople meId={me.id} onClose={() => setFindOpen(false)} onOpenChat={openChat} />}
 
       {incoming && !call && (
         <IncomingCall

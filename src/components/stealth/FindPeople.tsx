@@ -5,7 +5,7 @@ import { Avatar } from "./Avatar";
 
 interface Props {
   onClose: () => void;
-  onOpenChat: (chatId: string) => void;
+  onOpenChat: (chatId: string) => Promise<boolean>;
   meId: string;
 }
 
@@ -29,8 +29,11 @@ export function FindPeople({ onClose, onOpenChat, meId }: Props) {
   const open = async (id: string) => {
     setBusyId(id);
     const chatId = await startDm(id);
+    if (chatId) {
+      const opened = await onOpenChat(chatId);
+      if (opened) onClose();
+    }
     setBusyId(null);
-    if (chatId) { onOpenChat(chatId); onClose(); }
   };
 
   const hint = useMemo(() => q.trim().length && q.trim().length < 2, [q]);
