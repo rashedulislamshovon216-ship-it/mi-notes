@@ -309,10 +309,6 @@ export type Database = {
     }
     Functions: {
       get_or_create_dm: { Args: { _other: string }; Returns: string }
-      is_chat_member: {
-        Args: { _chat: string; _user: string }
-        Returns: boolean
-      }
       mark_story_viewed: { Args: { _story: string }; Returns: undefined }
       search_users: {
         Args: { _q: string }
