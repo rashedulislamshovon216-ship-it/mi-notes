@@ -20,17 +20,28 @@ export function AuthGate({ onReady, onExit }: Props) {
 
   useEffect(() => {
     let alive = true;
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!alive || !data.user) return;
-      const { data: p } = await supabase.from("profiles").select("username").eq("id", data.user.id).maybeSingle();
+    const resolve = async (userId: string) => {
+      const { data: p } = await supabase.from("profiles").select("username").eq("id", userId).maybeSingle();
       if (!alive) return;
-      if (p?.username) onReady(data.user.id);
-      else setNeedsHandle(data.user.id);
+      if (p?.username) onReady(userId);
+      else setNeedsHandle(userId);
+    };
+    supabase.auth.getUser().then(({ data }) => {
+      if (!alive || !data.user) return;
+      void resolve(data.user.id);
     });
-    return () => { alive = false; };
+    // Picks up the session set by the Google popup / redirect round-trip.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!alive || !session?.user) return;
+      if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "USER_UPDATED") {
+        void resolve(session.user.id);
+      }
+    });
+    return () => { alive = false; sub.subscription.unsubscribe(); };
   }, [onReady]);
 
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(null), 3500); };
+
 
   const claimHandle = async (userId: string) => {
     const handle = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
