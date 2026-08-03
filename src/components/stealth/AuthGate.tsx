@@ -20,17 +20,28 @@ export function AuthGate({ onReady, onExit }: Props) {
 
   useEffect(() => {
     let alive = true;
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!alive || !data.user) return;
-      const { data: p } = await supabase.from("profiles").select("username").eq("id", data.user.id).maybeSingle();
+    const resolve = async (userId: string) => {
+      const { data: p } = await supabase.from("profiles").select("username").eq("id", userId).maybeSingle();
       if (!alive) return;
-      if (p?.username) onReady(data.user.id);
-      else setNeedsHandle(data.user.id);
+      if (p?.username) onReady(userId);
+      else setNeedsHandle(userId);
+    };
+    supabase.auth.getUser().then(({ data }) => {
+      if (!alive || !data.user) return;
+      void resolve(data.user.id);
     });
-    return () => { alive = false; };
+    // Picks up the session set by the Google popup / redirect round-trip.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!alive || !session?.user) return;
+      if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "USER_UPDATED") {
+        void resolve(session.user.id);
+      }
+    });
+    return () => { alive = false; sub.subscription.unsubscribe(); };
   }, [onReady]);
 
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(null), 3500); };
+
 
   const claimHandle = async (userId: string) => {
     const handle = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -69,10 +80,22 @@ export function AuthGate({ onReady, onExit }: Props) {
 
   const google = async () => {
     setBusy(true);
+    // Keep the hidden layer unlocked while the provider window is open, and
+    // stop the visibility lock from firing during the round-trip.
+    try { sessionStorage.setItem("qn.diag.open", "1"); } catch { /* blocked */ }
+    (window as unknown as { __quickNotesOAuthUntil?: number }).__quickNotesOAuthUntil = Date.now() + 120_000;
     const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+    if (r.redirected) return; // browser is navigating to Google
     setBusy(false);
-    if (r.error) flash("Google sign-in failed");
+    if (r.error) { flash("Google sign-in failed"); return; }
+    // Popup flow: the session is already set — resolve the profile now.
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return flash("Google sign-in failed");
+    const { data: p } = await supabase.from("profiles").select("username").eq("id", data.user.id).maybeSingle();
+    if (p?.username) onReady(data.user.id);
+    else setNeedsHandle(data.user.id);
   };
+
 
   return (
     <div className="h-dvh w-full aurora-bg text-white grid place-items-center px-5">

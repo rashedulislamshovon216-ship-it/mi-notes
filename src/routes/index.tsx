@@ -16,9 +16,27 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+const SESSION_KEY = "qn.diag.open";
+
 function Index() {
   const [unlocked, setUnlocked] = useState(false);
   const [forcedNote, setForcedNote] = useState<Note | null>(null);
+
+  // Restore the hidden layer after an OAuth round-trip (the provider redirect
+  // reloads the page, which would otherwise drop the user back to notes and
+  // make Google sign-in look like it silently failed).
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(SESSION_KEY) === "1") setUnlocked(true);
+    } catch { /* storage blocked */ }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (unlocked) sessionStorage.setItem(SESSION_KEY, "1");
+      else sessionStorage.removeItem(SESSION_KEY);
+    } catch { /* storage blocked */ }
+  }, [unlocked]);
 
   // Emergency privacy: lock only when the tab is actually hidden (app switch /
   // screen off). A plain window `blur` also fires for file pickers, the camera
@@ -27,12 +45,14 @@ function Index() {
   useEffect(() => {
     if (!unlocked) return;
     const onVis = () => {
-      const pickerUntil = (window as unknown as { __quickNotesFilePickerUntil?: number }).__quickNotesFilePickerUntil ?? 0;
-      if (document.visibilityState === "hidden" && Date.now() > pickerUntil) setUnlocked(false);
+      const w = window as unknown as { __quickNotesFilePickerUntil?: number; __quickNotesOAuthUntil?: number };
+      const guardUntil = Math.max(w.__quickNotesFilePickerUntil ?? 0, w.__quickNotesOAuthUntil ?? 0);
+      if (document.visibilityState === "hidden" && Date.now() > guardUntil) setUnlocked(false);
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [unlocked]);
+
 
 
   const panic = () => {
