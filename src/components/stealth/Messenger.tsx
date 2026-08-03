@@ -278,14 +278,14 @@ function ContactsView({
 
       <ul className="flex-1 overflow-y-auto pb-24">
         {chats.map((c) => (
-          <li key={c.chatId} className="active:bg-white/5">
-            <div className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition">
-              <button onClick={() => onOpen(c.chatId)} onDoubleClick={() => onProfile(c.chatId)} className="shrink-0">
+          <li key={c.chatId}>
+            <div role="button" tabIndex={0} onClick={() => onOpen(c.chatId)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpen(c.chatId); }} className="conversation-row w-full flex items-center gap-3 px-4 py-3 transition cursor-pointer outline-none">
+              <button onClick={(e) => { e.stopPropagation(); onOpen(c.chatId); }} onDoubleClick={(e) => { e.stopPropagation(); onProfile(c.chatId); }} className="shrink-0">
                 {c.isSelf
                   ? <span className="size-12 rounded-full glass grid place-items-center"><Bookmark className="size-5" /></span>
                   : <Avatar profile={c.other} size={48} online={isOnline(c.other?.last_seen)} nickname={c.nickname} />}
               </button>
-              <button onClick={() => onOpen(c.chatId)} className="flex-1 min-w-0 text-left">
+              <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center gap-2">
                   <span className="font-medium truncate">{c.isSelf ? "Saved Messages" : displayNameOf(c.other, c.nickname)}</span>
                   {c.pinned && <Pin className="size-3 text-[var(--msg-muted)]" />}
@@ -300,7 +300,7 @@ function ContactsView({
                   {c.muted && <BellOff className="size-3 text-[var(--msg-muted)]" />}
                   {c.unread > 0 && <span className="size-2.5 rounded-full bg-[var(--msg-accent)]" />}
                 </div>
-              </button>
+              </div>
             </div>
           </li>
         ))}
@@ -499,12 +499,13 @@ function ChatView({ me, chat, onBack, onProfile, onPanic, onSettings, onCall }: 
         <IconBtn label="More" onClick={onSettings}><MoreVertical className="size-5" /></IconBtn>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 space-y-1" onClick={() => setSelected(null)}>
+      <div ref={scrollRef} className="chat-thread flex-1 overflow-y-auto px-2 sm:px-4 py-3 space-y-1" onClick={() => setSelected(null)}>
         {grouped.length === 0 && (
-          <div className="text-center mt-20 text-[var(--msg-muted)] text-sm">
-            <span className="glass inline-flex items-center gap-2 px-4 py-2 rounded-full">
-              <Lock className="size-3" /> Messages are private to you two
-            </span>
+          <div className="text-center mt-20 text-[var(--msg-muted)] text-sm px-8">
+            <span className="empty-chat-mark mx-auto mb-4"><Bookmark className="size-6" /></span>
+            <p className="font-medium text-white">{chat.isSelf ? "Your private space" : "Start the conversation"}</p>
+            <p className="mt-1 text-xs leading-relaxed">{chat.isSelf ? "Keep messages, files and voice notes here." : "Messages and calls stay between you two."}</p>
+            <span className="glass-soft mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px]"><Lock className="size-3" /> Private conversation</span>
           </div>
         )}
         {grouped.map((g) => (
@@ -581,7 +582,7 @@ function ChatView({ me, chat, onBack, onProfile, onPanic, onSettings, onCall }: 
         />
       )}
 
-      <div className="glass px-2 py-2 flex items-end gap-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div className="composer-dock glass px-2 py-2 flex items-end gap-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {recording ? (
           <div className="flex-1 glass-soft rounded-3xl px-4 h-11 flex items-center gap-3">
             <span className="size-2.5 rounded-full bg-red-500 animate-pulse" />

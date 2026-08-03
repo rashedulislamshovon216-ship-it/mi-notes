@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft, Check, Eye, Image as ImageIcon, LayoutPanelTop, Maximize2, Mic, Minimize2, Move,
-  Pen, Pin, Plus, Search, Square, Star, Trash2, Type, X,
+  ArrowDown, ArrowLeft, ArrowUp, Check, Code2, Copy, Eye, Image as ImageIcon, LayoutPanelTop,
+  Maximize2, Mic, Minimize2, Move, Pen, Pin, Plus, Search, Square, Star, Trash2, Type, X,
 } from "lucide-react";
 import { NOTE_TAGS, Note, NoteAttachment, NoteCanvasItem, NoteTag, SECRET_TITLE, notesRepo, uid } from "@/lib/stealth/storage";
 import { noteStats, renderNotePreview } from "@/lib/stealth/markdown";
@@ -324,16 +324,11 @@ function Editor({
           {s.words} words · {s.minutes} min read
         </span>
 
-        <button onClick={onTogglePreview} className="size-9 grid place-items-center rounded-full hover:bg-secondary" aria-label="Toggle preview">
-          {preview ? <Pen className="size-4" /> : <Eye className="size-4" />}
-        </button>
-        <button
-          onClick={() => { setMode((m) => (m === "canvas" ? "write" : "canvas")); if (preview) onTogglePreview(); }}
-          className={`size-9 grid place-items-center rounded-full hover:bg-secondary ${mode === "canvas" ? "text-primary" : ""}`}
-          aria-label="Canvas mode"
-        >
-          <LayoutPanelTop className="size-4" />
-        </button>
+        <div className="note-mode-switch">
+          <button onClick={() => { setMode("write"); if (preview) onTogglePreview(); }} data-active={!preview && mode === "write"} aria-label="Write mode"><Pen className="size-3.5" /><span>Write</span></button>
+          <button onClick={() => { setMode("canvas"); if (preview) onTogglePreview(); }} data-active={!preview && mode === "canvas"} aria-label="Canvas mode"><LayoutPanelTop className="size-3.5" /><span>Canvas</span></button>
+          <button onClick={() => { if (!preview) onTogglePreview(); }} data-active={preview} aria-label="Preview"><Eye className="size-3.5" /><span>Preview</span></button>
+        </div>
         <button onClick={onToggleFocus} className="size-9 grid place-items-center rounded-full hover:bg-secondary" aria-label="Focus mode">
           {focus ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
         </button>
@@ -371,7 +366,10 @@ function Editor({
         </p>
 
         {preview ? (
-          <div className="px-4 md:px-8 pb-10">{renderNotePreview(note.body)}</div>
+          <div className="px-4 md:px-8 pb-10">
+            <div className="mb-4 flex items-center gap-2 text-[11px] text-muted-foreground"><Code2 className="size-3.5" />Live document preview</div>
+            {renderNotePreview(note.body)}
+          </div>
         ) : mode === "canvas" ? (
           <CanvasBoard note={note} onChange={onChange} />
         ) : (
@@ -445,6 +443,20 @@ function CanvasBoard({ note, onChange }: { note: Note; onChange: (patch: Partial
   const addText = () => saveItems([...items, { id: uid(), kind: "text", x: 28, y: 28 + items.length * 18, w: 210, h: 132, text: "New idea…", color: "gold" }]);
   const patchItem = (id: string, patch: Partial<NoteCanvasItem>) => saveItems(items.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   const removeItem = (id: string) => saveItems(items.filter((it) => it.id !== id));
+  const duplicateItem = (item: NoteCanvasItem) => saveItems([...items, { ...item, id: uid(), x: item.x + 20, y: item.y + 20 }]);
+  const moveLayer = (id: string, direction: "up" | "down") => {
+    const index = items.findIndex((item) => item.id === id);
+    const target = direction === "up" ? index + 1 : index - 1;
+    if (index < 0 || target < 0 || target >= items.length) return;
+    const next = [...items];
+    [next[index], next[target]] = [next[target], next[index]];
+    saveItems(next);
+  };
+  const cycleColor = (item: NoteCanvasItem) => {
+    const colors: NonNullable<NoteCanvasItem["color"]>[] = ["gold", "rose", "mint", "ink"];
+    const current = colors.indexOf(item.color ?? "gold");
+    patchItem(item.id, { color: colors[(current + 1) % colors.length] });
+  };
 
   const addImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; e.target.value = "";
@@ -472,7 +484,7 @@ function CanvasBoard({ note, onChange }: { note: Note; onChange: (patch: Partial
         <button onClick={() => { markPicker(); imageRef.current?.click(); }} className="shrink-0 rounded-full bg-secondary px-3 py-2 text-xs font-semibold text-secondary-foreground flex items-center gap-1.5">
           <ImageIcon className="size-3.5" /> Image
         </button>
-        <span className="text-[11px] text-muted-foreground">Drag cards freely around the canvas</span>
+        <span className="text-[11px] text-muted-foreground">Move, layer, resize and recolor anything</span>
         <input ref={imageRef} type="file" accept="image/*" hidden onChange={addImage} />
       </div>
       <div
@@ -493,7 +505,7 @@ function CanvasBoard({ note, onChange }: { note: Note; onChange: (patch: Partial
         {items.map((it) => (
           <div
             key={it.id}
-            className={`absolute z-10 rounded-2xl border border-foreground/10 shadow-xl touch-none ${it.color === "rose" ? "bg-rose-100" : it.color === "mint" ? "bg-emerald-100" : it.color === "ink" ? "bg-primary text-primary-foreground" : "bg-amber-100"}`}
+            className={`absolute z-10 rounded-2xl border border-foreground/10 shadow-xl touch-none overflow-hidden ${it.color === "rose" ? "bg-rose-100" : it.color === "mint" ? "bg-emerald-100" : it.color === "ink" ? "bg-primary text-primary-foreground" : "bg-amber-100"}`}
             style={{ left: it.x, top: it.y, width: it.w, minHeight: it.h }}
           >
             <div
@@ -505,7 +517,11 @@ function CanvasBoard({ note, onChange }: { note: Note; onChange: (patch: Partial
               className="flex cursor-grab items-center gap-1.5 rounded-t-2xl px-2 py-1.5 text-[10px] opacity-70 active:cursor-grabbing"
             >
               <Move className="size-3" /> move
-              <button onClick={() => removeItem(it.id)} className="ml-auto rounded-full p-1 hover:bg-foreground/10" aria-label="Remove canvas item"><X className="size-3" /></button>
+              <button onClick={() => cycleColor(it)} className="ml-auto rounded-full p-1 hover:bg-foreground/10" aria-label="Change card color"><span className="block size-2.5 rounded-full bg-current opacity-40" /></button>
+              <button onClick={() => duplicateItem(it)} className="rounded-full p-1 hover:bg-foreground/10" aria-label="Duplicate canvas item"><Copy className="size-3" /></button>
+              <button onClick={() => moveLayer(it.id, "down")} className="rounded-full p-1 hover:bg-foreground/10" aria-label="Move layer backward"><ArrowDown className="size-3" /></button>
+              <button onClick={() => moveLayer(it.id, "up")} className="rounded-full p-1 hover:bg-foreground/10" aria-label="Move layer forward"><ArrowUp className="size-3" /></button>
+              <button onClick={() => removeItem(it.id)} className="rounded-full p-1 hover:bg-foreground/10" aria-label="Remove canvas item"><X className="size-3" /></button>
             </div>
             {it.kind === "text" ? (
               <textarea value={it.text ?? ""} onChange={(e) => patchItem(it.id, { text: e.target.value })}
@@ -513,6 +529,16 @@ function CanvasBoard({ note, onChange }: { note: Note; onChange: (patch: Partial
             ) : (
               <img src={it.dataUrl} alt="Canvas attachment" className="w-full rounded-b-2xl object-cover" style={{ minHeight: it.h - 28 }} />
             )}
+            <button
+              onPointerDown={(e) => { e.stopPropagation(); (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId); }}
+              onPointerMove={(e) => {
+                if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+                const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+                if (rect) patchItem(it.id, { w: Math.max(140, e.clientX - rect.left), h: Math.max(100, e.clientY - rect.top) });
+              }}
+              className="absolute bottom-0 right-0 size-6 cursor-nwse-resize opacity-50"
+              aria-label="Resize canvas item"
+            ><span className="absolute bottom-1 right-1 size-2 border-b-2 border-r-2 border-current" /></button>
           </div>
         ))}
       </div>

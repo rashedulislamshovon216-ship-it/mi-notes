@@ -195,7 +195,7 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
-  h1, h2, h3, h4, .font-display { font-family: var(--font-display); letter-spacing: -0.02em; }
+  h1, h2, h3, h4, .font-display { font-family: var(--font-display); letter-spacing: 0; }
 }
 
 /* ============ Notes layer surfaces ============ */
@@ -275,13 +275,75 @@
   scrollbar-width: none;
 }
 
-/* Aurora ambient background — drifting blobs of accent color */
+/* Deep optical field without decorative orbs. */
 @utility aurora-bg {
   background:
-    radial-gradient(60% 50% at 18% 10%, rgba(var(--msg-glow), 0.22), transparent 60%),
-    radial-gradient(45% 45% at 92% 88%, rgba(var(--msg-glow), 0.18), transparent 60%),
-    radial-gradient(35% 35% at 80% 20%, rgba(var(--msg-glow), 0.10), transparent 60%),
+    linear-gradient(145deg, rgba(var(--msg-glow), 0.13), transparent 34%),
+    linear-gradient(325deg, rgba(var(--msg-glow), 0.08), transparent 38%),
     var(--msg-bg);
+}
+
+.note-mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--color-secondary) 72%, transparent);
+}
+.note-mode-switch button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 36px;
+  height: 30px;
+  padding-inline: 8px;
+  border-radius: 9px;
+  color: var(--color-muted-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+.note-mode-switch button[data-active="true"] {
+  color: var(--color-primary-foreground);
+  background: var(--color-primary);
+  box-shadow: 0 5px 14px color-mix(in oklab, var(--color-primary) 24%, transparent);
+}
+.conversation-row {
+  border-bottom: 1px solid rgba(255,255,255,0.045);
+}
+.conversation-row:hover, .conversation-row:focus-visible {
+  background: linear-gradient(90deg, rgba(var(--msg-glow), 0.1), rgba(255,255,255,0.025));
+}
+.chat-thread {
+  background-image: linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 100% 44px;
+}
+.empty-chat-mark {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 18px;
+  color: var(--msg-accent);
+  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--msg-surface);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 20px 50px -22px rgba(var(--msg-glow),0.7);
+}
+.composer-dock {
+  border-inline: 0;
+  border-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .note-mode-switch button span { display: none; }
+  .note-mode-switch button { padding-inline: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
 
 @keyframes float-slow {
