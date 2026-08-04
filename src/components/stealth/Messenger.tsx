@@ -7,7 +7,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import {
   CallRow, ChatSummary, CloudProfile, MessageRow, StoryRow,
-  createCall, createStory, deleteMessage, deleteStory, displayNameOf, editMessage,
+  createCall, createStory, deleteMessage, deleteStory, displayNameOf, editMessage, getChatSummary,
   listChats, listMessages, listStories, markStoryViewed, myProfile, patchCall,
   previewOfMessage, reactToStory, resolveMedia, sendMessage, setContactFlag,
   subscribeInbox, subscribeIncomingCalls, subscribeMessages, toggleReaction,
@@ -44,6 +44,7 @@ export function Messenger({ onClose, onPanic }: Props) {
   const [theme, setTheme] = useState<ThemeId>(() => getStoredTheme());
   const [call, setCall] = useState<CallRow | null>(null);
   const [incoming, setIncoming] = useState<CallRow | null>(null);
+  const [appError, setAppError] = useState<string | null>(null);
 
   useEffect(() => { applyTheme(theme); }, [theme]);
 
@@ -52,27 +53,39 @@ export function Messenger({ onClose, onPanic }: Props) {
   };
 
   const refresh = useCallback(async () => {
-    const [c, s] = await Promise.all([listChats(), listStories()]);
-    const next = c.map((x) => {
+    try {
+      const [c, s] = await Promise.all([listChats(), listStories()]);
+      const next = c.map((x) => {
         const lastRead = Number(localStorage.getItem(readKey(x.chatId)) ?? 0);
         const unread =
           x.last && x.last.sender_id !== me?.id && new Date(x.last.created_at).getTime() > lastRead ? 1 : 0;
         return { ...x, unread };
       });
-    setChats(next);
-    setActiveChat((current) => {
-      if (!current) return null;
-      return next.find((chat) => chat.chatId === current.chatId) ?? current;
-    });
-    setStories(s);
-    return next;
+      setChats(next);
+      setActiveChat((current) => {
+        if (!current) return null;
+        return next.find((chat) => chat.chatId === current.chatId) ?? current;
+      });
+      setStories(s);
+      setAppError(null);
+      return next;
+    } catch (cause) {
+      setAppError(cause instanceof Error ? cause.message : "Could not refresh conversations");
+      return [];
+    }
   }, [me?.id]);
 
   const boot = useCallback(async () => {
-    const p = await myProfile();
-    setMe(p);
-    setReady(true);
-    if (p) { touchPresence(); }
+    try {
+      const p = await myProfile();
+      setMe(p);
+      setAppError(null);
+      if (p) void touchPresence();
+    } catch (cause) {
+      setAppError(cause instanceof Error ? cause.message : "Could not load your account");
+    } finally {
+      setReady(true);
+    }
   }, []);
 
   useEffect(() => { boot(); }, [boot]);
@@ -102,19 +115,23 @@ export function Messenger({ onClose, onPanic }: Props) {
   const active = activeChat;
 
   const openChat = async (chatId: string) => {
-    localStorage.setItem(readKey(chatId), String(Date.now()));
-    let selected = chats.find((chat) => chat.chatId === chatId) ?? null;
-    if (!selected) {
-      const next = await refresh();
-      selected = next.find((chat) => chat.chatId === chatId) ?? null;
+    setAppError(null);
+    try {
+      localStorage.setItem(readKey(chatId), String(Date.now()));
+      const selected = chats.find((chat) => chat.chatId === chatId) ?? await getChatSummary(chatId);
+      if (!selected) throw new Error("This conversation is unavailable");
+      const opened = { ...selected, unread: 0 };
+      setActiveId(chatId);
+      setActiveChat(opened);
+      setChats((current) => current.some((chat) => chat.chatId === chatId)
+        ? current.map((chat) => (chat.chatId === chatId ? opened : chat))
+        : [opened, ...current]);
+      setView("chat");
+      return true;
+    } catch (cause) {
+      setAppError(cause instanceof Error ? cause.message : "Could not open this conversation");
+      return false;
     }
-    if (!selected) return false;
-    const opened = { ...selected, unread: 0 };
-    setActiveId(chatId);
-    setActiveChat(opened);
-    setChats((current) => current.map((chat) => (chat.chatId === chatId ? opened : chat)));
-    setView("chat");
-    return true;
   };
 
 
@@ -144,6 +161,12 @@ export function Messenger({ onClose, onPanic }: Props) {
 
   return (
     <div className="h-dvh w-full aurora-bg text-white flex overflow-hidden select-none">
+      {appError && (
+        <div role="alert" className="fixed inset-x-3 top-3 z-[80] mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-red-300/15 bg-red-950/90 px-4 py-3 text-sm text-red-100 shadow-2xl backdrop-blur-xl">
+          <span className="flex-1">{appError}</span>
+          <button aria-label="Dismiss" onClick={() => setAppError(null)}><X className="size-4" /></button>
+        </div>
+      )}
       {view === "list" && (
         <ContactsView
           me={me} chats={filtered} stories={stories} search={search} setSearch={setSearch}

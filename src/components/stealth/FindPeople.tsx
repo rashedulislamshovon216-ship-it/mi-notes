@@ -14,6 +14,7 @@ export function FindPeople({ onClose, onOpenChat, meId }: Props) {
   const [results, setResults] = useState<CloudProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const term = q.trim();
@@ -28,10 +29,15 @@ export function FindPeople({ onClose, onOpenChat, meId }: Props) {
 
   const open = async (id: string) => {
     setBusyId(id);
-    const chatId = await startDm(id);
-    if (chatId) {
+    setError(null);
+    try {
+      const chatId = await startDm(id);
+      if (!chatId) throw new Error("Conversation could not be created");
       const opened = await onOpenChat(chatId);
-      if (opened) onClose();
+      if (!opened) throw new Error("Conversation could not be opened");
+      onClose();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not open this conversation");
     }
     setBusyId(null);
   };
@@ -63,6 +69,7 @@ export function FindPeople({ onClose, onOpenChat, meId }: Props) {
         </div>
 
         <div className="overflow-y-auto px-2 pb-6 flex-1">
+          {error && <p role="alert" className="mx-3 mb-2 rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-200">{error}</p>}
           <button onClick={() => open(meId)}
             className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl hover:bg-white/5 text-left">
             <span className="size-11 rounded-full glass grid place-items-center"><Bookmark className="size-5" /></span>
