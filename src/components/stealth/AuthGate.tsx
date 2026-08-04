@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { Lock, Loader2, AtSign, Sparkles } from "lucide-react";
@@ -17,28 +17,43 @@ export function AuthGate({ onReady, onExit }: Props) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [needsHandle, setNeedsHandle] = useState<string | null>(null);
+  const resolving = useRef<string | null>(null);
+
+  const resolveUser = useCallback(async (userId: string) => {
+    if (resolving.current === userId) return;
+    resolving.current = userId;
+    setBusy(true);
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", userId)
+      .maybeSingle();
+    resolving.current = null;
+    setBusy(false);
+    if (error) {
+      flash("Could not load your account. Please try again.");
+      return;
+    }
+    if (profile?.username) onReady(userId);
+    else setNeedsHandle(userId);
+  }, [onReady]);
 
   useEffect(() => {
     let alive = true;
-    const resolve = async (userId: string) => {
-      const { data: p } = await supabase.from("profiles").select("username").eq("id", userId).maybeSingle();
-      if (!alive) return;
-      if (p?.username) onReady(userId);
-      else setNeedsHandle(userId);
-    };
     supabase.auth.getUser().then(({ data }) => {
       if (!alive || !data.user) return;
-      void resolve(data.user.id);
+      void resolveUser(data.user.id);
     });
     // Picks up the session set by the Google popup / redirect round-trip.
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!alive || !session?.user) return;
       if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "USER_UPDATED") {
-        void resolve(session.user.id);
+        // Run after the auth callback releases its internal session lock.
+        window.setTimeout(() => { if (alive) void resolveUser(session.user.id); }, 0);
       }
     });
     return () => { alive = false; sub.subscription.unsubscribe(); };
-  }, [onReady]);
+  }, [resolveUser]);
 
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(null), 3500); };
 
@@ -61,9 +76,7 @@ export function AuthGate({ onReady, onExit }: Props) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       setBusy(false);
       if (error) return flash(error.message);
-      const { data: p } = await supabase.from("profiles").select("username").eq("id", data.user.id).maybeSingle();
-      if (p?.username) onReady(data.user.id);
-      else setNeedsHandle(data.user.id);
+      await resolveUser(data.user.id);
     } else {
       const handle = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
       if (handle.length < 3) { setBusy(false); return flash("Pick a handle (3+ chars)"); }
@@ -89,11 +102,9 @@ export function AuthGate({ onReady, onExit }: Props) {
     setBusy(false);
     if (r.error) { flash("Google sign-in failed"); return; }
     // Popup flow: the session is already set — resolve the profile now.
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) return flash("Google sign-in failed");
-    const { data: p } = await supabase.from("profiles").select("username").eq("id", data.user.id).maybeSingle();
-    if (p?.username) onReady(data.user.id);
-    else setNeedsHandle(data.user.id);
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) return flash("Google sign-in did not finish. Please try again.");
+    await resolveUser(data.user.id);
   };
 
 

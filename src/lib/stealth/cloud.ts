@@ -69,7 +69,8 @@ export async function currentUser() {
 export async function myProfile(): Promise<CloudProfile | null> {
   const u = await currentUser();
   if (!u) return null;
-  const { data } = await supabase.from("profiles").select("*").eq("id", u.id).maybeSingle();
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", u.id).maybeSingle();
+  if (error) throw new Error(error.message);
   return (data as CloudProfile) ?? null;
 }
 
@@ -97,8 +98,38 @@ export async function searchPeople(q: string): Promise<CloudProfile[]> {
 
 export async function startDm(otherId: string): Promise<string | null> {
   const { data, error } = await supabase.rpc("get_or_create_dm", { _other: otherId });
-  if (error) return null;
+  if (error) throw new Error(error.message);
   return data as string;
+}
+
+export async function getChatSummary(chatId: string): Promise<ChatSummary | null> {
+  const u = await currentUser();
+  if (!u) return null;
+  const { data: memberRows, error: memberError } = await supabase
+    .from("chat_members")
+    .select("user_id")
+    .eq("chat_id", chatId);
+  if (memberError) throw new Error(memberError.message);
+  const peers = (memberRows ?? []).map((row) => row.user_id);
+  if (!peers.includes(u.id)) return null;
+  const otherId = peers.find((id) => id !== u.id) ?? u.id;
+  const [{ data: profile, error: profileError }, { data: contact, error: contactError }, { data: last, error: lastError }] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", otherId).maybeSingle(),
+    supabase.from("contacts").select("*").eq("owner_id", u.id).eq("contact_id", otherId).maybeSingle(),
+    supabase.from("messages").select("*").eq("chat_id", chatId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const error = profileError ?? contactError ?? lastError;
+  if (error) throw new Error(error.message);
+  return {
+    chatId,
+    isSelf: otherId === u.id,
+    other: (profile as CloudProfile | null) ?? null,
+    last: (last as MessageRow | null) ?? null,
+    unread: 0,
+    pinned: contact?.pinned ?? false,
+    muted: contact?.muted ?? false,
+    nickname: contact?.nickname ?? null,
+  };
 }
 
 /* ------------------------------- chats ------------------------------ */
@@ -114,14 +145,17 @@ export async function listChats(): Promise<ChatSummary[]> {
   const chatIds = (memberships ?? []).map((m) => m.chat_id);
   if (!chatIds.length) return [];
 
-  const [{ data: members }, { data: msgs }, { data: contacts }] = await Promise.all([
+  const [{ data: members, error: membersError }, { data: msgs, error: messagesError }, { data: contacts, error: contactsError }] = await Promise.all([
     supabase.from("chat_members").select("chat_id, user_id").in("chat_id", chatIds),
     supabase.from("messages").select("*").in("chat_id", chatIds).order("created_at", { ascending: false }).limit(400),
     supabase.from("contacts").select("*").eq("owner_id", u.id),
   ]);
+  const listError = membersError ?? messagesError ?? contactsError;
+  if (listError) throw new Error(listError.message);
 
   const otherIds = [...new Set((members ?? []).map((m) => m.user_id))];
-  const { data: profs } = await supabase.from("profiles").select("*").in("id", otherIds.length ? otherIds : [u.id]);
+  const { data: profs, error: profilesError } = await supabase.from("profiles").select("*").in("id", otherIds.length ? otherIds : [u.id]);
+  if (profilesError) throw new Error(profilesError.message);
   const profById = new Map((profs ?? []).map((p) => [p.id, p as CloudProfile]));
   const contactById = new Map((contacts ?? []).map((c) => [c.contact_id, c]));
 
@@ -166,11 +200,12 @@ export async function setContactFlag(
 /* ----------------------------- messages ----------------------------- */
 
 export async function listMessages(chatId: string): Promise<MessageRow[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("messages")
     .select("*")
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
   return (data ?? []) as MessageRow[];
 }
 
