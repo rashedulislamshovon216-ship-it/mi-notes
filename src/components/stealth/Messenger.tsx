@@ -53,20 +53,26 @@ export function Messenger({ onClose, onPanic }: Props) {
   };
 
   const refresh = useCallback(async () => {
-    const [c, s] = await Promise.all([listChats(), listStories()]);
-    const next = c.map((x) => {
+    try {
+      const [c, s] = await Promise.all([listChats(), listStories()]);
+      const next = c.map((x) => {
         const lastRead = Number(localStorage.getItem(readKey(x.chatId)) ?? 0);
         const unread =
           x.last && x.last.sender_id !== me?.id && new Date(x.last.created_at).getTime() > lastRead ? 1 : 0;
         return { ...x, unread };
       });
-    setChats(next);
-    setActiveChat((current) => {
-      if (!current) return null;
-      return next.find((chat) => chat.chatId === current.chatId) ?? current;
-    });
-    setStories(s);
-    return next;
+      setChats(next);
+      setActiveChat((current) => {
+        if (!current) return null;
+        return next.find((chat) => chat.chatId === current.chatId) ?? current;
+      });
+      setStories(s);
+      setAppError(null);
+      return next;
+    } catch (cause) {
+      setAppError(cause instanceof Error ? cause.message : "Could not refresh conversations");
+      return [];
+    }
   }, [me?.id]);
 
   const boot = useCallback(async () => {

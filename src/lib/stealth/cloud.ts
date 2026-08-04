@@ -138,10 +138,11 @@ export async function listChats(): Promise<ChatSummary[]> {
   const u = await currentUser();
   if (!u) return [];
 
-  const { data: memberships } = await supabase
+  const { data: memberships, error: membershipsError } = await supabase
     .from("chat_members")
     .select("chat_id")
     .eq("user_id", u.id);
+  if (membershipsError) throw new Error(membershipsError.message);
   const chatIds = (memberships ?? []).map((m) => m.chat_id);
   if (!chatIds.length) return [];
 

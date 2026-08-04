@@ -19,6 +19,11 @@ export function AuthGate({ onReady, onExit }: Props) {
   const [needsHandle, setNeedsHandle] = useState<string | null>(null);
   const resolving = useRef<string | null>(null);
 
+  const flash = useCallback((message: string) => {
+    setMsg(message);
+    window.setTimeout(() => setMsg(null), 3500);
+  }, []);
+
   const resolveUser = useCallback(async (userId: string) => {
     if (resolving.current === userId) return;
     resolving.current = userId;
@@ -36,7 +41,7 @@ export function AuthGate({ onReady, onExit }: Props) {
     }
     if (profile?.username) onReady(userId);
     else setNeedsHandle(userId);
-  }, [onReady]);
+  }, [flash, onReady]);
 
   useEffect(() => {
     let alive = true;
@@ -54,9 +59,6 @@ export function AuthGate({ onReady, onExit }: Props) {
     });
     return () => { alive = false; sub.subscription.unsubscribe(); };
   }, [resolveUser]);
-
-  const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(null), 3500); };
-
 
   const claimHandle = async (userId: string) => {
     const handle = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
